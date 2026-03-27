@@ -1,0 +1,155 @@
+swagger: '2.0'
+info:
+  title: Identity MCP Server
+  description: |
+    Active Directory identity MCP server exposing read-only user, group, and computer queries.
+    
+    Phase 1 Tools (Point Lookups):
+    - get_user: Get user state (enabled/disabled, OU, description, last logon)
+    - search_users_by_name: Search users by name
+    - get_user_groups: Get all group memberships for a user
+    - get_group_members: Get all members of a named group
+    - find_stale_users: Get users with no logon activity in N days
+    - get_computer: Get computer account details including OU placement
+    
+    Phase 2 Tools (Casual Userbase Exploration):
+    - query_users: Flexible filtered user queries with pagination (supports casual questions about disabled users, stale users, OU populations, group membership)
+    - count_users: Count users matching filter criteria without returning full records
+    - summarize_users: Grouped aggregates for leadership-style questions (e.g., users by department, by last logon bucket, by OU)
+  version: 2.0.0
+  contact:
+    name: IT Service Desk
+    email: itservicedesk@wheels.com
+
+# REQUIRED: Replace with your actual hosted endpoint
+# Example: identity-mcp.wheelsinc.com
+host: your-identity-mcp-host.yourdomain.com
+
+basePath: /
+
+schemes:
+  - https
+
+# SECURITY CONFIGURATION
+# Uncomment and configure based on your deployment:
+
+# Option 1: No authentication (internal network only)
+security: []
+
+# Option 2: API Key in header (recommended for Phase 1)
+# securityDefinitions:
+#   apiKey:
+#     type: apiKey
+#     in: header
+#     name: X-API-Key
+#     description: API key for authenticating requests to Identity MCP server
+
+# security:
+#   - apiKey: []
+
+# Option 3: OAuth 2.0 (for Phase 3+ with user delegation)
+# securityDefinitions:
+#   oauth2:
+#     type: oauth2
+#     flow: accessCode
+#     authorizationUrl: https://your-idp.com/authorize
+#     tokenUrl: https://your-idp.com/token
+#     scopes:
+#       identity.read: Read identity information
+#       identity.write: Modify identity information
+# security:
+#   - oauth2: ['identity.read']
+
+paths:
+  /mcp:
+    post:
+      summary: Identity MCP Streamable HTTP endpoint
+      description: |
+        MCP protocol endpoint for identity operations. Invokes tools defined in the Identity MCP server:
+        
+        Phase 1 Tools (Point Lookups):
+        - get_user: Get user state (enabled/disabled, OU, description, last logon)
+        - search_users_by_name: Search users by name
+        - get_user_groups: Get all group memberships for a user
+        - get_group_members: Get all members of a named group
+        - find_stale_users: Get users with no logon activity in N days
+        - get_computer: Get computer account details including OU placement
+        
+        Phase 2 Tools (Casual Userbase Exploration):
+        - query_users: Flexible filtered user queries with pagination supporting casual questions like "show me disabled users" or "find users who haven't logged in for 90 days"
+        - count_users: Count users matching filter criteria without returning full records for quick sizing questions
+        - summarize_users: Grouped aggregates for leadership-style questions like "which departments have the most stale users"
+        
+        All Phase 2 tools support validated filter parameters:
+        - enabled (bool): Filter by account status
+        - name_contains (str): Display name search
+        - username_prefix (str): Username prefix filter
+        - ou_contains (str): OU path filter
+        - group_any (list[str]): Match users in any of these groups
+        - description_contains (str): Description search
+        - last_logon_before_days (int): Stale user filter
+        
+        query_users additionally supports:
+        - fields: Projection (username, display_name, first_name, last_name, enabled, ou, description, last_logon_utc, when_created_utc, department, title, email)
+        - sort_by: Sort field (display_name, username, last_logon_utc, when_created_utc, department)
+        - sort_direction: asc or desc
+        - page_size: Results per page (1-200)
+        - cursor: Pagination cursor
+        
+        summarize_users additionally supports:
+        - group_by: Grouping field (enabled, ou, department, title, created_month, last_logon_bucket)
+        - top: Max buckets to return (1-50)
+      operationId: InvokeIdentityMCP
+      x-ms-agentic-protocol: mcp-streamable-1.0
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - name: body
+          in: body
+          description: MCP protocol request payload
+          required: true
+          schema:
+            type: object
+            description: MCP request following Model Context Protocol specification
+      responses:
+        '200':
+          description: Success - MCP protocol response
+          schema:
+            type: object
+            description: MCP response following Model Context Protocol specification
+        '400':
+          description: Bad request - invalid MCP payload
+        '401':
+          description: Unauthorized - invalid or missing API key
+        '500':
+          description: Internal server error - backend failure
+
+definitions:
+  MCPRequest:
+    type: object
+    description: MCP protocol request structure (reference only)
+    properties:
+      jsonrpc:
+        type: string
+        example: "2.0"
+      method:
+        type: string
+        example: "tools/call"
+      params:
+        type: object
+      id:
+        type: string
+
+  MCPResponse:
+    type: object
+    description: MCP protocol response structure (reference only)
+    properties:
+      jsonrpc:
+        type: string
+        example: "2.0"
+      result:
+        type: object
+      id:
+        type: string

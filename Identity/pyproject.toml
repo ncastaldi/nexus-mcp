@@ -1,0 +1,25 @@
+[project]
+name = "identity-mcp-server"
+version = "0.1.0"
+description = "Identity MCP server baseline for phased rollout"
+readme = "implementation-guide.md"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp[cli]>=1.2.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+]
+
+[project.scripts]
+identity-mcp = "identity_mcp_server:main"
+
+[tool.setuptools]
+py-modules = ["identity_mcp_server", "identity_backend", "ad_adapter"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
