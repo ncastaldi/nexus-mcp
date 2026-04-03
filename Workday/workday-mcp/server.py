@@ -1,6 +1,12 @@
 from mcp.server.fastmcp import FastMCP
 from typing import Any
-from lib.data import MOCK_WORKERS
+from lib.data import (
+    MOCK_WORKERS,
+    scan_department_drift,
+    scan_job_title_mismatches,
+    scan_name_variance,
+    scan_status_reconciliation_mismatches,
+)
 
 mcp = FastMCP("Workday-Sync") #Server name for MCP registration, e.g. "Workday-Sync"
 
@@ -92,6 +98,38 @@ def scan_manager_mismatches() -> dict[str, Any]:
         },
         "mismatches": mismatches
     }
+
+
+@mcp.tool()
+def scan_status_reconciliation() -> dict[str, Any]:
+    """
+    WIS-014: Flag workers terminated in Workday but still enabled in AD.
+    """
+    return scan_status_reconciliation_mismatches()
+
+
+@mcp.tool()
+def scan_job_title_drift() -> dict[str, Any]:
+    """
+    Detect workers whose Workday title differs from their AD title.
+    """
+    return scan_job_title_mismatches()
+
+
+@mcp.tool()
+def scan_department_mismatches() -> dict[str, Any]:
+    """
+    Detect workers whose Workday department differs from their AD department.
+    """
+    return scan_department_drift()
+
+
+@mcp.tool()
+def scan_name_variance_mismatches() -> dict[str, Any]:
+    """
+    Detect AD display names that do not align with Workday legal or preferred names.
+    """
+    return scan_name_variance()
 
 if __name__ == "__main__":
     mcp.run()

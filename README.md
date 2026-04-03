@@ -30,6 +30,7 @@ This page is the high-visibility execution status for Workday Integration Suite
 | Memory-backed worker status tool (`get_worker_status`) | WIS-009 | 🟢 Green | Returns structured allowlist-oriented worker payloads from deterministic fixtures. |
 | Manager lookup tool (`get_worker_manager`) | WIS-011, WIS-017 prep | 🟢 Green | Resolves valid, missing-manager, and unresolved-manager scenarios. |
 | Manager mismatch detector (`scan_manager_mismatches`) | WIS-017 | 🟢 Green | Functional prototype scans full mock set and reports unresolved manager links. |
+| Expanded identity drift detectors (`scan_status_reconciliation`, `scan_job_title_drift`, `scan_department_mismatches`, `scan_name_variance_mismatches`) | WIS-014 to WIS-018 scope | 🟢 Green | Mock-backed drift scans now cover terminated-but-enabled, title drift, department drift, and legal-vs-display name review scenarios with focused pytest coverage. |
 | API token flow and real Workday backend | WIS-008 | 🟡 Yellow | Design path is clear; implementation still pending non-prod credentials and auth closure. |
 | Non-prod auth/access unblockers | WIS-001 to WIS-003 | 🔴 Red | External decisions and access provisioning remain gate conditions for API-mode validation. |
 
@@ -48,7 +49,7 @@ This page is the high-visibility execution status for Workday Integration Suite
 | --- | --- | --- | --- |
 | Unblockers and access readiness | WIS-001 to WIS-005 | 🔴 Red | Pre-implementation dependencies are defined but not yet closed. |
 | Core Workday MCP buildout | WIS-006 to WIS-012 | 🟡 Yellow | Modular and memory-backed foundation is live; API/auth and resilience controls are next. |
-| Correlation and mismatch expansion | WIS-013 to WIS-018 | 🟡 Yellow | WIS-017 manager mismatch path is prototyped; remaining mismatch categories are queued. |
+| Correlation and mismatch expansion | WIS-013 to WIS-018 | 🟡 Yellow | Multiple mock-backed mismatch detectors are now implemented and tested; live directory/API correlation and remaining roadmap categories are still pending. |
 | Automation, reporting, remediation | WIS-019 to WIS-030 | 🔴 Red | Flow automation, KPI instrumentation, and cutover remain roadmap backlog. |
 
 ## Recent activity (from git history)
@@ -57,6 +58,8 @@ This page is the high-visibility execution status for Workday Integration Suite
 - Added formalized README update prompt for repeatable status refreshes.
 - Refined Workday runtime modular structure and validated three core tools.
 - Completed type-hint quality refinements consistent with Pylance discipline.
+- Added four mismatch-detection tools for status, title, department, and name variance review.
+- Added focused pytest coverage for Workday mismatch scans and MCP wrappers.
 
 ## Next milestone focus
 
