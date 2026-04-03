@@ -1,52 +1,68 @@
-# MCP servers
+# Workday-MCP status page
 
-## Repository intent
+**Updated:** 2026-04-03
 
-This repository defines MCP servers and implementation guides that support
-enterprise identity operations across multiple systems.
+This page is the high-visibility execution status for the Workday Integration
+Suite (WIS) deliverables in this repository.
 
-- Identity: provides a production-oriented read path for AD user and group data,
-	with adapters, server wiring, and tests.
-- Workday: defines the Workday-to-AD identity sync implementation approach,
-	phased delivery, and operational controls.
-- Intune: captures deployment prerequisites and planning artifacts for endpoint
-	management integrations.
+## Traffic-light legend
 
-## Current workflow intent
+| Status | Meaning |
+| --- | --- |
+| 🟢 Green | Functional / production-ready |
+| 🟡 Yellow | In progress / development |
+| 🔴 Red | Blocked / not started |
 
-The active workflow is focused on delivering a controlled Workday-to-AD sync
-capability that:
+## Program status summary
 
-- Uses Workday as source of truth for worker lifecycle state.
-- Uses Identity MCP as the downstream enforcement and validation interface.
-- Starts read-only, then introduces approval-gated remediation actions.
-- Tracks measurable outcomes, including drift reduction and provisioning speed.
+| Component | WIS traceability | Status | Notes |
+| --- | --- | --- | --- |
+| Modular runtime architecture (`server.py` + `lib/data.py`) | WIS-006 | 🟢 Green | Migrated from single-file script to modular layout for maintainability and cleaner backend swap-in. |
+| Worker status tool (`get_worker_status`) | WIS-009 | 🟢 Green | Tool returns structured, allowlist-oriented worker payloads from deterministic mock data. |
+| Worker manager lookup (`get_worker_manager`) | WIS-017 prep | 🟢 Green | Manager relationship resolution supports normal, missing-manager, and unresolved-manager scenarios. |
+| Manager mismatch scan (`scan_manager_mismatches`) | WIS-017 | 🟢 Green | Prototype is functional and scans all current mock records, including intentional mismatch scenarios. |
+| Mock data foundation (9 worker records) | WIS-007, WIS-017 | 🟢 Green | Dataset includes valid hierarchy records and one intentional mismatch for detector validation. |
+| Transition to real Workday API backend | WIS-008 | 🟡 Yellow | Next milestone: replace mock-backed execution path with API token flow and secure secret handling. |
+| Non-prod Workday auth and access readiness | WIS-001, WIS-002, WIS-003 | 🔴 Red | External dependency closure required before end-to-end non-prod API validation can complete. |
 
-## Progress snapshot (2026-04-03)
+## Discipline drives quality
 
-### Completed
+| Engineering discipline pillar | Current state | Evidence |
+| --- | --- | --- |
+| Type hinting discipline | 🟢 Green | Function signatures and return contracts in [Workday/workday-mcp/server.py](Workday/workday-mcp/server.py) and typed mock map in [Workday/workday-mcp/lib/data.py](Workday/workday-mcp/lib/data.py). |
+| Pylance quality gate | 🟢 Green | Current implementation maintains zero known Pylance errors in active Workday-MCP runtime files. |
+| Modular structure discipline | 🟢 Green | Separation of orchestration (`server.py`) and dataset/backend data layer (`lib/data.py`) enables controlled evolution to API mode. |
+| Traceability discipline | 🟢 Green | WIS IDs embedded in docstrings and aligned with sprint board/backlog artifacts. |
 
-- Workday execution backlog created: [Workday/workday-ad-identity-sync-next-steps.md](Workday/workday-ad-identity-sync-next-steps.md).
-- Sprint-ready board created: [Workday/workday-ad-identity-sync-sprint-board.md](Workday/workday-ad-identity-sync-sprint-board.md).
-- Identity MCP baseline is in place with code and tests under [Identity](Identity/).
+## Current sprint alignment (WIS roadmap)
 
-### In progress
+| Workstream | Primary IDs | Status | Outcome target |
+| --- | --- | --- | --- |
+| Core read tooling stabilization | WIS-006 to WIS-011 | 🟡 Yellow | Preserve schema stability while preparing backend transition to real API calls. |
+| Mismatch detection execution | WIS-014 to WIS-018 | 🟡 Yellow | WIS-017 manager mismatch detector is prototyped and functional; remaining categories continue in sequence. |
+| Automation and reporting | WIS-019 to WIS-026 | 🔴 Red | Daily/weekly flow automation and KPI reporting start after API-path readiness and detector completion. |
 
-- Converting strategy into sprint-trackable work items (WIS-001 to WIS-030).
-- Preparing dependency closure sequence for auth, non-prod access, and data
-	contract controls.
+## Recent activity
 
-### Next milestones
+- Completed modular architecture migration from single-file runtime to
+  `server.py` + `lib/data.py`.
+- Implemented and validated three operational MCP tools:
+  `get_worker_status`, `get_worker_manager`, and `scan_manager_mismatches`.
+- Confirmed WIS-017 prototype behavior against 9 mock worker records,
+  including intentional manager mismatch coverage.
+- Established next delivery focus on WIS-008 (mock-to-real Workday API
+  transition).
 
-- Q2 milestone 1: close blockers and validate non-prod read-only path.
-- Q2 milestone 2: implement core Workday MCP tools and mismatch detection.
-- Q2 milestone 3: enable daily sync checks with ticketed approval workflow.
-- Q3 milestones: drift reporting, production rollout, and >=30% MTTP
-	reduction versus Q1 baseline.
+## Next milestone focus
 
-## Key documents
+| Milestone | ID | Status | Exit criteria |
+| --- | --- | --- | --- |
+| Mock-to-API transition | WIS-008 | 🟡 Yellow | Obtain non-prod credentials, complete secure token flow, execute first API-backed read tool in runtime path. |
 
-- [Workday/workday-ad-identity-sync-next-steps.md](Workday/workday-ad-identity-sync-next-steps.md)
-- [Workday/workday-ad-identity-sync-sprint-board.md](Workday/workday-ad-identity-sync-sprint-board.md)
-- [Identity/implementation-guide.md](Identity/implementation-guide.md)
-- [Identity/copilot-studio-deployment-guide.md](Identity/copilot-studio-deployment-guide.md)
+## Reference documents
+
+- [Workday execution backlog](Workday/Planning/workday-ad-identity-sync-next-steps.md)
+- [Workday sprint board](Workday/Planning/workday-ad-identity-sync-sprint-board.md)
+- [Workday implementation plan](Workday/Planning/workday-mcp-implementation-plan.md)
+- [Workday installation guide](Workday/Planning/workday-mcp-install-guide.md)
+- [Workday runtime entrypoint](Workday/workday-mcp/server.py)
