@@ -26,7 +26,7 @@ Why: this starts the Inspector UI and spawns the MCP server over STDIO. If start
 
 If you see `Proxy Server PORT IS IN USE at port 6277`, use one of the following:
 
-PowerShell (recommended):
+PowerShell terminal (recommended):
 
 ```powershell
 Get-NetTCPConnection -State Listen -LocalPort 6277,6274 |
@@ -35,18 +35,18 @@ Get-NetTCPConnection -State Listen -LocalPort 6277,6274 |
 Stop-Process -Id <PID> -Force
 ```
 
+Important: `<PID>` is a placeholder. Replace it with a real numeric process ID from the first command.
+
 Why: kill by PID is more reliable than killing `node.exe` by name because the owning process may vary.
 
 Git Bash alternative:
 
 ```bash
-for p in 6277 6274; do
-  pids=$(netstat -ano | awk -v port=":$p" '$2 ~ port {print $5}' | tr -d '\r' | sort -u)
-  for pid in $pids; do
-    cmd.exe /c taskkill /F /PID "$pid"
-  done
-done
+cd Workday/workday-mcp
+powershell -NoProfile -Command '$ports = 6277,6274; $conns = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $ports -contains $_.LocalPort }; $conns | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; "cleanup-done"'
 ```
+
+Why: this runs PowerShell networking commands from Git Bash in one copy/paste-safe command.
 
 ## 5. Optional quick health checks after connect
 
