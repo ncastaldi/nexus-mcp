@@ -67,25 +67,6 @@ This page is the high-visibility execution status for Workday Integration Suite
 | --- | --- | --- | --- |
 | Mock-to-API transition | WIS-008 | 🟡 Yellow | Non-prod credentials approved, secure token flow operational, first API-backed read call validated. |
 
-## Local development quick-start
-
-### 1. Activate environment
-
-```bash
-source .venv/Scripts/activate
-```
-
-### 2. Launch inspector
-
-```bash
-npx @modelcontextprotocol/inspector python server.py
-```
-
-### 3. Port cleanup (if blocked)
-
-- Proxy (6277): `taskkill //F //IM node.exe`
-- Inspector (6274): `taskkill //F //IM node.exe`
-
 ## Reference documents
 
 - [Workday execution backlog](Workday/Planning/workday-ad-identity-sync-next-steps.md)
@@ -93,3 +74,4 @@ npx @modelcontextprotocol/inspector python server.py
 - [Workday implementation plan](Workday/Planning/workday-mcp-implementation-plan.md)
 - [Workday installation guide](Workday/Planning/workday-mcp-install-guide.md)
 - [Workday runtime entrypoint](Workday/workday-mcp/server.py)
+- [Operational startup guidance](Local%20Setup.md)
