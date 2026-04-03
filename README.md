@@ -59,6 +59,21 @@ Suite (WIS) deliverables in this repository.
 | --- | --- | --- | --- |
 | Mock-to-API transition | WIS-008 | 🟡 Yellow | Obtain non-prod credentials, complete secure token flow, execute first API-backed read tool in runtime path. |
 
+## Local Development Quick-Start
+
+### 1. Activate Environment
+
+`source .venv/Scripts/activate`
+
+### 2. Launch Inspector
+
+`npx @modelcontextprotocol/inspector python server.py`
+
+### 3. Port Cleanup (If Blocked)
+
+- **Proxy (6277):** `taskkill //F //IM node.exe`
+- **Inspector (6274):** `taskkill //F //IM node.exe`
+
 ## Reference documents
 
 - [Workday execution backlog](Workday/Planning/workday-ad-identity-sync-next-steps.md)
