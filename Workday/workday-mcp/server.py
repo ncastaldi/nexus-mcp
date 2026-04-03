@@ -94,7 +94,6 @@ def get_worker_status(employee_id: str) -> dict[str, Any]:
 
     return {"error": f"Worker {employee_id} not found."}
 
-
 @mcp.tool()
 def get_worker_manager(employee_id: str) -> dict[str, Any]:
     """WIS-017 prep: resolve a worker's manager relationship from mock data."""
@@ -129,6 +128,37 @@ def get_worker_manager(employee_id: str) -> dict[str, Any]:
         "manager_id": manager_id,
         "manager_name": manager["name"],
         "relationship_status": "ok",
+    }
+
+@mcp.tool()
+def scan_manager_mismatches() -> dict[str, Any]:
+    """
+    WIS-017: Scan all workers and return a report of manager relationship errors.
+    This provides the data for WIS-020 weekly drift reporting.
+    """
+    mismatches = []
+    total_scanned = 0
+
+    for emp_id, details in MOCK_WORKERS.items():
+        total_scanned += 1
+        manager_id = details.get("manager_id")
+        
+        # We only care about cases where a manager is assigned but cannot be found
+        if manager_id and manager_id not in MOCK_WORKERS:
+            mismatches.append({
+                "employee_id": emp_id,
+                "employee_name": details["name"],
+                "invalid_manager_id": manager_id,
+                "error_type": "manager_not_found"
+            })
+
+    return {
+        "scan_summary": {
+            "total_records_checked": total_scanned,
+            "mismatches_found": len(mismatches),
+            "status": "action_required" if mismatches else "clean"
+        },
+        "mismatches": mismatches
     }
 
 if __name__ == "__main__":
