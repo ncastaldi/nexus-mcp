@@ -1,10 +1,11 @@
 from mcp.server.fastmcp import FastMCP
+from typing import Any
 
 # This stays the same - it's your server's identity
 mcp = FastMCP("Workday-Sync")
 
 @mcp.tool()
-def get_worker_status(employee_id: str) -> dict:
+def get_worker_status(employee_id: str) -> dict[str, Any]:
     """
     WIS-009: Fetch structured worker status.
     This replaces the previous string-based version.
