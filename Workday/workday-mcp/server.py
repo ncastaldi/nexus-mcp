@@ -136,7 +136,7 @@ def scan_manager_mismatches() -> dict[str, Any]:
     WIS-017: Scan all workers and return a report of manager relationship errors.
     This provides the data for WIS-020 weekly drift reporting.
     """
-    mismatches = []
+    mismatches: list[dict[str, Any]] = []
     total_scanned = 0
 
     for emp_id, details in MOCK_WORKERS.items():
