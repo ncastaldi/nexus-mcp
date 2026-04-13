@@ -7,14 +7,30 @@ Each shard is self-contained and can be toggled independently via feature flags.
 
 ## Shard Status Board
 
-| Shard | System(s) | Status | WIS Ref | Flag |
-|---|---|---|---|---|
-| `identity` | Active Directory + Entra ID | 🟢 Green | WIS-017 | `ENABLE_IDENTITY` |
-| `workday` | Workday HCM | 🟡 Yellow | WIS-009 | `ENABLE_WORKDAY` |
-| `itsm` | BMC Helix ITSM | 🔴 Red | Planned | `ENABLE_ITSM` |
-| `assets` | Lansweeper + Intune | 🔴 Red | Planned | `ENABLE_ASSETS` |
-| `logistics` | FedEx | 🔴 Red | Planned | `ENABLE_LOGISTICS` |
-| `audit` | Cross-system drift + reporting | 🟡 Yellow | — | `ENABLE_AUDIT` |
+| Shard | System(s) | Status | WIS Ref | Flag | Notes |
+|---|---|---|---|---|---|
+| `identity` | Active Directory + Entra ID | 🟢 **Green** | WIS-017 | `ENABLE_IDENTITY` | **15 tools** — Production-ready |
+| `workday` | Workday HCM | 🟡 **Yellow** | WIS-009 | `ENABLE_WORKDAY` | **7 tools** — Functional; API credentials pending |
+| `audit` | Cross-system drift + reporting | 🟡 **Yellow** | — | `ENABLE_AUDIT` | **11 tools** — Async execution enabled; verification in progress |
+| `itsm` | BMC Helix ITSM | 🔴 **Red** | Planned | `ENABLE_ITSM` | Stub only — credentials not configured |
+| `assets` | Lansweeper + Intune | 🔴 **Red** | Planned | `ENABLE_ASSETS` | Stub only — credentials not configured |
+| `logistics` | FedEx | 🔴 **Red** | Planned | `ENABLE_LOGISTICS` | Stub only — credentials not configured |
+
+**Total Registered Tools:** 33 (15 Identity + 7 Workday + 11 Audit)  
+**Last Updated:** 2026-04-13 (Session: Audit shard async execution)
+
+---
+
+## Project Health: "Discipline Drives Quality"
+
+| Pillar | Status | Evidence |
+|---|---|---|
+| **Type Safety** | 🟢 | Pydantic models for all cross-system schemas |
+| **Error Handling** | 🟢 | Enterprise resilience layer with graceful degradation |
+| **Configuration** | 🟢 | `pydantic-settings` validation + feature flag control |
+| **Audit Compliance** | 🟢 | SOC 2 logging (CC7.2/CC6.1) with PII redaction |
+| **Test Coverage** | 🟡 | Pytest suites migrated; live API validation pending |
+| **Mock Support** | 🟢 | Full mock mode via `USE_MOCK=true` for all shards |
 
 ---
 
@@ -154,17 +170,24 @@ Leave a shard unregistered (or set flag to `false`) to hold it without breaking 
 | `fedex_get_rates` | Rate quote between postal codes |
 
 ### Audit shard (🟡)
-| Tool | Description |
-|---|---|
-| `audit_user_drift` | Single user across Workday / AD / Entra |
-| `audit_bulk_user_drift` | Up to 50 users concurrently |
-| `audit_device_drift` | Single device across Lansweeper / Intune / Helix |
-| `audit_entra_ad_sync_drift` | Full Entra→AD sync scan |
-| `audit_intune_lansweeper_device_drift` | Intune vs Lansweeper reconciliation |
-| `generate_weekly_report` | Full weekly cross-system report |
-| `generate_compliance_report` | Device + identity risk snapshot |
-| `generate_asset_reconciliation_report` | Intune vs Lansweeper diff |
-| `generate_itsm_weekly_summary` | Helix ticket volume summary |
+| Tool | Description | Execution |
+|---|---|---|
+| `audit_user_drift` | Single user across Workday / AD / Entra | Async |
+| `audit_bulk_user_drift` | Up to 50 users concurrently | Async |
+| `audit_device_drift` | Single device across Lansweeper / Intune / Helix | Async |
+| `audit_entra_ad_sync_drift` | Full Entra→AD sync scan | Async |
+| `audit_intune_lansweeper_device_drift` | Intune vs Lansweeper reconciliation | Async |
+| `generate_weekly_report` | Full weekly cross-system report | Async |
+| `generate_compliance_report` | Device + identity risk snapshot | Async |
+| `generate_asset_reconciliation_report` | Intune vs Lansweeper diff | Async |
+| `generate_itsm_weekly_summary` | Helix ticket volume summary | Async |
+| `nexus_audit_recent` | Query recent audit events (last N days) | Sync |
+| `nexus_audit_stats` | Aggregate statistics on audit activity | Sync |
+
+**Recent Improvements (2026-04-13):**
+- ✅ Async execution for all drift detection scans
+- ✅ MCP protocol verification script (`verify_mcp_protocol.py`)
+- ✅ Resilience layer with retry logic and graceful degradation
 
 ---
 
@@ -188,9 +211,29 @@ python src/main.py          # or: nexus-mcp
       "cwd": "/path/to/nexus-mcp"
     }
   }
-}
-```
+}Sprint Status & Next Steps
 
+### ✅ Recently Completed (2026-04-13)
+- Async audit execution for high-volume scans
+- Enterprise resilience framework (retry logic, circuit breakers)
+- Pydantic schema standardization for cross-system data
+- Code health report with actionable improvements
+
+### 🟡 In Progress
+- **Pytest validation** of all 33 tools against live APIs
+- **Workday API credential approval** (WIS-009)
+- **Claude Desktop integration testing** with updated config
+
+### 🔴 Blocked / Pending Approval
+- **ITSM shard (BMC Helix):** AR-JWT credentials pending
+- **Assets shard (Lansweeper + Intune):** GraphQL + Graph API setup
+- **Logistics shard (FedEx):** OAuth2 client registration
+
+---
+
+## Required Permissions
+
+See [Local-Setup.md](Local-Setup.md) for the full permission matrix and credential configuration guide
 All credentials can live in `nexus-mcp/.env` — no need to put them in the Claude config.
 
 ---
