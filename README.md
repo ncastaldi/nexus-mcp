@@ -1,9 +1,8 @@
-# Workday-MCP status page
+# Nexus-MCP status page
 
-**Updated:** 2026-04-03
+**Updated:** 2026-04-13
 
-This page is the high-visibility execution status for Workday Integration Suite
-(WIS) delivery in this repository.
+This page is the high-visibility execution status for Nexus-MCP, the sharded enterprise integration server supporting 53 tools across 9 system categories.
 
 ## Traffic-light legend
 
@@ -13,43 +12,39 @@ This page is the high-visibility execution status for Workday Integration Suite
 | 🟡 Yellow | In progress / development |
 | 🔴 Red | Blocked / not started |
 
-## Context retrieval checkpoint
+## Nexus-MCP shard status board
 
-| Signal | Result | Impact |
-| --- | --- | --- |
-| `git diff --cached` | No staged files detected | Commit-intent diff is unavailable; stage files before the next status refresh that requires commit-scoped analysis. |
-| Latest project snapshot | `documentation/project-history/SESSION_SNAPSHOT_2026-04-03.md` | Session confirms strong standards discipline and that Workday execution remains in kickoff-to-build transition. |
-| `TODO` / `// RESTART NOTE` in staged files | Not applicable (no staged files) | No commit-scoped intent markers available for this update cycle. |
-| Breaking change scan (`compose.yaml` ports/volumes) | No matching changes detected | No `BREAKING CHANGE` flag required for runtime port/path behavior. |
+Each shard is independently toggleable via feature flags. Shards load only when their `ENABLE_*` flag is set to `true` in `.env`.
 
-## Program status summary
+| Shard | System(s) | Tools | Status | WIS Ref | Flag |
+|---|---|---|---|---|---|
+| `identity` | Active Directory + Entra ID | 15 | 🟢 Green | WIS-017 | `ENABLE_IDENTITY` |
+| `workday` | Workday HCM | 7 | 🟢 Green | WIS-009 | `ENABLE_WORKDAY` |
+| `audit` | Cross-system drift | 9 | 🟡 Yellow | WIS-014-018 | `ENABLE_AUDIT` |
+| `itsm` | BMC Helix ITSM | 6 | 🔴 Red | Planned | `ENABLE_ITSM` |
+| `assets` | Lansweeper + Intune | 11 | 🔴 Red | Planned | `ENABLE_ASSETS` |
+| `logistics` | FedEx | 5 | 🔴 Red | Planned | `ENABLE_LOGISTICS` |
 
-| Component | WIS traceability | Status | Notes |
-| --- | --- | --- | --- |
-| Runtime modular structure (`server.py` + `lib/data.py`) | WIS-006 | 🟢 Green | Modular split is in place and supports controlled backend evolution. |
-| Memory-backed worker status tool (`get_worker_status`) | WIS-009 | 🟢 Green | Returns structured allowlist-oriented worker payloads from deterministic fixtures. |
-| Manager lookup tool (`get_worker_manager`) | WIS-011, WIS-017 prep | 🟢 Green | Resolves valid, missing-manager, and unresolved-manager scenarios. |
-| Manager mismatch detector (`scan_manager_mismatches`) | WIS-017 | 🟢 Green | Functional prototype scans full mock set and reports unresolved manager links. |
-| Expanded identity drift detectors (`scan_status_reconciliation`, `scan_job_title_drift`, `scan_department_mismatches`, `scan_name_variance_mismatches`) | WIS-014 to WIS-018 scope | 🟢 Green | Mock-backed drift scans now cover terminated-but-enabled, title drift, department drift, and legal-vs-display name review scenarios with focused pytest coverage. |
-| API token flow and real Workday backend | WIS-008 | 🟡 Yellow | Design path is clear; implementation still pending non-prod credentials and auth closure. |
-| Non-prod auth/access unblockers | WIS-001 to WIS-003 | 🔴 Red | External decisions and access provisioning remain gate conditions for API-mode validation. |
+**Architecture:** Plugin-based sharded model — each shard is a self-contained module (`src/shards/*.py`) that registers its tools via a `register(mcp)` function. The orchestrator (`src/main.py`) checks feature flags and loads only enabled shards. This allows piece-at-a-time deployment without touching the core server code.
 
-## Discipline drives quality
+## Architecture wins
 
 | Engineering discipline pillar | Current state | Evidence |
 | --- | --- | --- |
-| Type hinting discipline | 🟢 Green | Typed return contracts and strongly typed mock map are implemented in runtime modules. |
-| Pylance quality gate | 🟢 Green | Current Workday runtime implementation is tracking zero known Pylance errors. |
-| Modular architecture discipline | 🟢 Green | Orchestration and data layers are separated for maintainability and backend swap readiness. |
-| Traceability discipline | 🟢 Green | WIS IDs are embedded in runtime docstrings and aligned with sprint planning artifacts. |
+| Atomic deployment discipline | 🟢 Green | Each shard can be deployed independently via feature flags without risk to other shards. |
+| Type hinting discipline | 🟢 Green | All shards and lib/ adapters use typed return contracts per repository standards. |
+| Modular architecture discipline | 🟢 Green | Orchestrator (main.py), shards (tools), lib/ (adapters) cleanly separated — no cross-contamination. |
+| Mock-mode discipline | 🟢 Green | USE_MOCK flag enables full 53-tool testing without credentials (lib/mock_data.py with drift scenarios). |
+| SOC 2 audit logging | 🟢 Green | Automatic JSONL audit trail with PII redaction for every tool invocation (CC7.2 / CC6.1). |
+| Traceability discipline | 🟢 Green | WIS IDs embedded in tool docstrings; shard status board maps directly to roadmap. |
 
-## Sprint alignment (WIS roadmap)
+## Execution roadmap
 
 | Workstream | WIS IDs | Status | Execution posture |
 | --- | --- | --- | --- |
-| Unblockers and access readiness | WIS-001 to WIS-005 | 🔴 Red | Pre-implementation dependencies are defined but not yet closed. |
-| Core Workday MCP buildout | WIS-006 to WIS-012 | 🟡 Yellow | Modular and memory-backed foundation is live; API/auth and resilience controls are next. |
-| Correlation and mismatch expansion | WIS-013 to WIS-018 | 🟡 Yellow | Multiple mock-backed mismatch detectors are now implemented and tested; live directory/API correlation and remaining roadmap categories are still pending. |
+| Core shards (Identity + Workday + Audit) | WIS-006 to WIS-018 | 🟢 Green | Nexus-MCP sharded architecture operational with 31 tools in mock mode. |
+| API/credentials transition | WIS-001 to WIS-008 | 🟡 Yellow | Live AD backend working; Workday API and Entra awaiting credential approval. |
+| Extended shards (ITSM + Assets + Logistics) | Phase 2+ | 🔴 Red | Stub shards created; awaiting credential provisioning and client development. |
 | Automation, reporting, remediation | WIS-019 to WIS-030 | 🔴 Red | Flow automation, KPI instrumentation, and cutover remain roadmap backlog. |
 
 ## Recent activity (from git history)
@@ -61,14 +56,61 @@ This page is the high-visibility execution status for Workday Integration Suite
 - Added four mismatch-detection tools for status, title, department, and name variance review.
 - Added focused pytest coverage for Workday mismatch scans and MCP wrappers.
 
-## Next milestone focus
+## Next milestones
 
 | Milestone | ID | Status | Exit criteria |
 | --- | --- | --- | --- |
-| Mock-to-API transition | WIS-008 | 🟡 Yellow | Non-prod credentials approved, secure token flow operational, first API-backed read call validated. |
+| Nexus-MCP verification | Integration | 🟡 Yellow | All mock-mode tools tested; pytest passes; Pylance zero errors; SOC 2 audit log verified |
+| Live credential integration | WIS-008, WIS-001-003 | 🔴 Red | Non-prod credentials approved, Entra + Workday API backends operational |
+| Extended shard activation | Phase 2 | 🔴 Red | ITSM, Assets, Logistics shards transition from Red to Yellow with stub client implementations |
 
 ## Reference documents
 
+### Nexus-MCP core
+
+- [Nexus-MCP comprehensive README](nexus-mcp/README.md) — full tool reference, shard architecture, and API docs
+- [Local setup guide](nexus-mcp/Local-Setup.md) — installation, configuration, feature flags, and troubleshooting
+- [Nexus orchestrator](nexus-mcp/src/main.py) — feature flag logic and shard loader
+- [SOC 2 audit logger](nexus-mcp/lib/audit_log.py) — automatic PII redaction and JSONL event writer
+
+### Legacy implementation (archived for reference)
+
+- [Identity MCP server](Identity/identity_mcp_server.py) — original AD tool implementation (see identity shard)
+- [Workday MCP server](Workday/workday-mcp/server.py) — original worker + drift tools (see workday + audit shards)
+- [Workday execution backlog](Workday/Planning/workday-ad-identity-sync-next-steps.md)
+- [Workday sprint board](Workday/Planning/workday-ad-identity-sync-sprint-board.md)
+- [Workday implementation plan](Workday/Planning/workday-mcp-implementation-plan
+```bash
+cd nexus-mcp
+python -m venv .venv
+source .venv/Scripts/activate  # Windows: .venv\Scripts\Activate.ps1
+pip install -e .
+cp .env.example .env
+
+# Edit .env: set USE_MOCK=true
+python src/main.py
+```
+
+See [nexus-mcp/Local-Setup.md](nexus-mcp/Local-Setup.md) for full installation guide.
+
+### Claude Desktop configuration
+
+```json
+{
+  "mcpServers": {
+    "nexus": {
+      "command": "python",
+      "args": ["src/main.py"],
+      "cwd": "/path/to/mcp_servers/nexus-mcp",
+      "env": {
+        "USE_MOCK": "true"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop to load the Nexus tool
 - [Workday execution backlog](Workday/Planning/workday-ad-identity-sync-next-steps.md)
 - [Workday sprint board](Workday/Planning/workday-ad-identity-sync-sprint-board.md)
 - [Workday implementation plan](Workday/Planning/workday-mcp-implementation-plan.md)

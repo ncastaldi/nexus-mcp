@@ -1,0 +1,1 @@
+# Test configuration for Identity MCP
