@@ -1,73 +1,177 @@
-"""Centralised config — loaded from environment / .env file."""
+"""Centralised config — loaded from environment / .env file using pydantic-settings."""
 
-import os
 from pathlib import Path
-from dotenv import load_dotenv
-
-# Load .env from the project root (nexus-mcp/)
-load_dotenv(Path(__file__).parent.parent / ".env")
-
-
-class ADConfig:
-    server: str = os.getenv("AD_SERVER", "")
-    port: int = int(os.getenv("AD_PORT", "389"))
-    base_dn: str = os.getenv("AD_BASE_DN", "")
-    user: str = os.getenv("AD_USER", "")
-    password: str = os.getenv("AD_PASSWORD", "")
-    use_ssl: bool = os.getenv("AD_USE_SSL", "false").lower() == "true"
+from typing import Optional
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class EntraConfig:
-    tenant_id: str = os.getenv("ENTRA_TENANT_ID", "")
-    client_id: str = os.getenv("ENTRA_CLIENT_ID", "")
-    client_secret: str = os.getenv("ENTRA_CLIENT_SECRET", "")
+class ADConfig(BaseSettings):
+    """Active Directory / LDAP configuration."""
+    model_config = SettingsConfigDict(
+        env_prefix="AD_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+    
+    server: str = ""
+    port: int = 389
+    base_dn: str = ""
+    user: str = ""
+    password: str = ""
+    use_ssl: bool = False
 
 
-class IntuneConfig:
-    tenant_id: str = os.getenv("INTUNE_TENANT_ID") or os.getenv("ENTRA_TENANT_ID", "")
-    client_id: str = os.getenv("INTUNE_CLIENT_ID") or os.getenv("ENTRA_CLIENT_ID", "")
-    client_secret: str = os.getenv("INTUNE_CLIENT_SECRET") or os.getenv("ENTRA_CLIENT_SECRET", "")
+class EntraConfig(BaseSettings):
+    """Microsoft Entra ID (Azure AD) configuration."""
+    model_config = SettingsConfigDict(
+        env_prefix="ENTRA_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+    
+    tenant_id: str = ""
+    client_id: str = ""
+    client_secret: str = ""
 
 
-class WorkdayConfig:
-    base_url: str = os.getenv("WORKDAY_BASE_URL", "")
-    tenant: str = os.getenv("WORKDAY_TENANT", "")
-    client_id: str = os.getenv("WORKDAY_CLIENT_ID", "")
-    client_secret: str = os.getenv("WORKDAY_CLIENT_SECRET", "")
-    refresh_token: str = os.getenv("WORKDAY_REFRESH_TOKEN", "")
+class IntuneConfig(BaseSettings):
+    """Microsoft Intune configuration (falls back to Entra credentials)."""
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+    
+    intune_tenant_id: Optional[str] = Field(default=None, alias="INTUNE_TENANT_ID")
+    intune_client_id: Optional[str] = Field(default=None, alias="INTUNE_CLIENT_ID")
+    intune_client_secret: Optional[str] = Field(default=None, alias="INTUNE_CLIENT_SECRET")
+    
+    # Fallback to Entra credentials
+    entra_tenant_id: Optional[str] = Field(default=None, alias="ENTRA_TENANT_ID")
+    entra_client_id: Optional[str] = Field(default=None, alias="ENTRA_CLIENT_ID")
+    entra_client_secret: Optional[str] = Field(default=None, alias="ENTRA_CLIENT_SECRET")
+    
+    @property
+    def tenant_id(self) -> str:
+        return self.intune_tenant_id or self.entra_tenant_id or ""
+    
+    @property
+    def client_id(self) -> str:
+        return self.intune_client_id or self.entra_client_id or ""
+    
+    @property
+    def client_secret(self) -> str:
+        return self.intune_client_secret or self.entra_client_secret or ""
 
 
-class HelixConfig:
-    base_url: str = os.getenv("HELIX_BASE_URL", "")
-    username: str = os.getenv("HELIX_USERNAME", "")
-    password: str = os.getenv("HELIX_PASSWORD", "")
+class WorkdayConfig(BaseSettings):
+    """Workday HCM API configuration."""
+    model_config = SettingsConfigDict(
+        env_prefix="WORKDAY_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+    
+    base_url: str = ""
+    tenant: str = ""
+    client_id: str = ""
+    client_secret: str = ""
+    refresh_token: str = ""
 
 
-class LansweeperConfig:
-    api_url: str = os.getenv("LANSWEEPER_API_URL", "https://api.lansweeper.com/api/v2/graphql")
-    application_id: str = os.getenv("LANSWEEPER_APPLICATION_ID", "")
-    application_secret: str = os.getenv("LANSWEEPER_APPLICATION_SECRET", "")
-    site_id: str = os.getenv("LANSWEEPER_SITE_ID", "")
+class HelixConfig(BaseSettings):
+    """BMC Helix ITSM configuration."""
+    model_config = SettingsConfigDict(
+        env_prefix="HELIX_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+    
+    base_url: str = ""
+    username: str = ""
+    password: str = ""
 
 
-class FedExConfig:
-    api_url: str = os.getenv("FEDEX_API_URL", "https://apis.fedex.com")
-    api_key: str = os.getenv("FEDEX_API_KEY", "")
-    api_secret: str = os.getenv("FEDEX_API_SECRET", "")
-    account_number: str = os.getenv("FEDEX_ACCOUNT_NUMBER", "")
+class LansweeperConfig(BaseSettings):
+    """Lansweeper asset management API configuration."""
+    model_config = SettingsConfigDict(
+        env_prefix="LANSWEEPER_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+    
+    api_url: str = "https://api.lansweeper.com/api/v2/graphql"
+    application_id: str = ""
+    application_secret: str = ""
+    site_id: str = ""
 
 
-class ReportConfig:
-    output_dir: Path = Path(os.getenv("REPORT_OUTPUT_DIR", "./reports"))
+class FedExConfig(BaseSettings):
+    """FedEx shipping API configuration."""
+    model_config = SettingsConfigDict(
+        env_prefix="FEDEX_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+    
+    api_url: str = "https://apis.fedex.com"
+    api_key: str = ""
+    api_secret: str = ""
+    account_number: str = ""
 
 
-class AuditConfig:
+class ReportConfig(BaseSettings):
+    """Report generation configuration."""
+    model_config = SettingsConfigDict(
+        env_prefix="REPORT_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+    
+    output_dir: Path = Path("./reports")
+    
+    @field_validator("output_dir", mode="before")
+    @classmethod
+    def parse_path(cls, v):
+        if isinstance(v, str):
+            return Path(v)
+        return v
+
+
+class AuditConfig(BaseSettings):
     """SOC 2 audit log configuration.
 
     Controls:
       CC7.2  — System Monitoring: log_file is the append-only audit trail.
       CC6.1  — Logical Access: log_to_stderr enables SIEM/syslog forwarding.
     """
-    log_file: Path = Path(os.getenv("AUDIT_LOG_FILE", "./logs/nexus_audit.jsonl"))
-    log_to_stderr: bool = os.getenv("AUDIT_LOG_STDERR", "true").lower() == "true"
-    enabled: bool = os.getenv("AUDIT_LOGGING_ENABLED", "true").lower() == "true"
+    model_config = SettingsConfigDict(
+        env_prefix="AUDIT_",
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
+    
+    log_file: Path = Field(default=Path("./logs/nexus_audit.jsonl"), alias="AUDIT_LOG_FILE")
+    log_to_stderr: bool = Field(default=True, alias="AUDIT_LOG_STDERR")
+    logging_enabled: bool = Field(default=True, alias="AUDIT_LOGGING_ENABLED")
+    
+    @field_validator("log_file", mode="before")
+    @classmethod
+    def parse_path(cls, v):
+        if isinstance(v, str):
+            return Path(v)
+        return v
+    
+    # Backwards compatibility alias
+    @property
+    def enabled(self) -> bool:
+        return self.logging_enabled
