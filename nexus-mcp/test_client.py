@@ -6,6 +6,7 @@ It connects to the server, lists available tools, and calls each audit tool
 to show real output with mock data.
 """
 
+import asyncio
 import sys
 import os
 
@@ -88,48 +89,53 @@ print("EXECUTING AUDIT SCANS")
 print("=" * 80)
 print()
 
-for tool_name in audit_tools:
-    print(f"🔍 Running: {tool_name}")
-    print("-" * 80)
-    
-    tool_fn = mcp._tool_manager._tools[tool_name].fn
-    result = tool_fn()
-    
-    # Display summary
-    summary = result["scan_summary"]
-    print(f"   Total records checked: {summary['total_records_checked']}")
-    print(f"   Mismatches found: {summary['mismatches_found']}")
-    print(f"   Status: {summary['status'].upper()}")
-    
-    # Display mismatches if any
-    if summary['mismatches_found'] > 0:
-        print(f"\n   📋 Mismatch Details:")
-        for i, mismatch in enumerate(result["mismatches"], 1):
-            print(f"\n   Mismatch #{i}:")
-            print(f"      Employee ID: {mismatch['employee_id']}")
-            print(f"      Employee Name: {mismatch['employee_name']}")
-            print(f"      Severity: {mismatch['severity'].upper()}")
-            print(f"      Type: {mismatch['mismatch_type']}")
-            
-            # Show specific fields based on mismatch type
-            if "workday_status" in mismatch:
-                print(f"      Workday Status: {mismatch['workday_status']}")
-                print(f"      AD Enabled: {mismatch['ad_enabled']}")
-            elif "workday_title" in mismatch:
-                print(f"      Workday Title: {mismatch['workday_title']}")
-                print(f"      AD Title: {mismatch['ad_title']}")
-            elif "workday_department" in mismatch:
-                print(f"      Workday Dept: {mismatch['workday_department']}")
-                print(f"      AD Dept: {mismatch['ad_department']}")
-                print(f"      Cost Center: {mismatch['workday_cost_center']}")
-            elif "workday_legal_name" in mismatch:
-                print(f"      Legal Name: {mismatch['workday_legal_name']}")
-                print(f"      Preferred Name: {mismatch['workday_preferred_name']}")
-                print(f"      AD Display Name: {mismatch['ad_display_name']}")
-    
-    print()
-    print()
+async def run_scans():
+    """Execute all audit scans asynchronously."""
+    for tool_name in audit_tools:
+        print(f"🔍 Running: {tool_name}")
+        print("-" * 80)
+        
+        tool_fn = mcp._tool_manager._tools[tool_name].fn
+        result = await tool_fn()
+        
+        # Display summary
+        summary = result["scan_summary"]
+        print(f"   Total records checked: {summary['total_records_checked']}")
+        print(f"   Mismatches found: {summary['mismatches_found']}")
+        print(f"   Status: {summary['status'].upper()}")
+        
+        # Display mismatches if any
+        if summary['mismatches_found'] > 0:
+            print(f"\n   📋 Mismatch Details:")
+            for i, mismatch in enumerate(result["mismatches"], 1):
+                print(f"\n   Mismatch #{i}:")
+                print(f"      Employee ID: {mismatch['employee_id']}")
+                print(f"      Employee Name: {mismatch['employee_name']}")
+                print(f"      Severity: {mismatch['severity'].upper()}")
+                print(f"      Type: {mismatch['mismatch_type']}")
+                
+                # Show specific fields based on mismatch type
+                if "workday_status" in mismatch:
+                    print(f"      Workday Status: {mismatch['workday_status']}")
+                    print(f"      AD Enabled: {mismatch['ad_enabled']}")
+                elif "workday_title" in mismatch:
+                    print(f"      Workday Title: {mismatch['workday_title']}")
+                    print(f"      AD Title: {mismatch['ad_title']}")
+                elif "workday_department" in mismatch:
+                    print(f"      Workday Dept: {mismatch['workday_department']}")
+                    print(f"      AD Dept: {mismatch['ad_department']}")
+                    print(f"      Cost Center: {mismatch['workday_cost_center']}")
+                elif "workday_legal_name" in mismatch:
+                    print(f"      Legal Name: {mismatch['workday_legal_name']}")
+                    print(f"      Preferred Name: {mismatch['workday_preferred_name']}")
+                    print(f"      AD Display Name: {mismatch['ad_display_name']}")
+        
+        print()
 
+# Run the async scans
+asyncio.run(run_scans())
+
+print()
 print("=" * 80)
 print("DEMONSTRATION COMPLETE")
 print("=" * 80)
