@@ -17,12 +17,15 @@ Your job is to:
 2. **Draft the Code:** Write the new code for the feature, ensuring it integrates with the existing server structure.
 3. **Explain the Setup:** Tell the user EXACTLY what commands to run in their terminal to create the branch and start working.
 4. **Identify Dependencies:** If this new feature requires a new "library" (like an NPM package for a specific API), list it clearly.
+5. **Test the Feature:** Provide instructions on how to verify that the new feature works correctly once implemented.
+6. **Test the larger application:** Ensure that the new feature does not break existing functionality by suggesting a testing strategy.
+7. **Document the Feature:** Suggest how to update any relevant documentation to include the new feature.
 </task_instructions>
 
 <report_format>
 ## 🌿 Branch Identity
 **Suggested Branch Name:** `[branch-name]`
-**Command to Run:** `git checkout -b [branch-name]`
+**Purpose:** (Briefly explain the purpose of this branch and how it fits into the overall project.)
 
 ## 🚀 The New Feature: [Feature Name]
 (Explain in plain English what this code does and why it works for your enterprise systems.)
