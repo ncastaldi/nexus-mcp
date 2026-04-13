@@ -18,3 +18,9 @@ desktop.ini
 
 # MCP Inspector logs
 logs/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+__pycache__/
