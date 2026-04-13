@@ -5,34 +5,51 @@ Each shard is self-contained and can be toggled independently via feature flags.
 
 ---
 
-## Shard Status Board
+<!-- STATUS_PAGE:BEGIN -->
+## Status Page (Managed)
 
-| Shard | System(s) | Status | WIS Ref | Flag | Notes |
+| Field | Value |
+|---|---|
+| Last Updated | 2026-04-13 |
+| Latest Session Snapshot | SESSION_SNAPSHOT_2026-04-13.md |
+| Change Signal | No staged files |
+| Components Affected | none |
+| TODO/RESTART Markers | none |
+| BREAKING CHANGE (compose ports/volumes) | No |
+
+## Shard Status Board (Traffic Light)
+
+| Shard | System(s) | Status | WIS Ref | Flag | Standard Gate |
 |---|---|---|---|---|---|
-| `identity` | Active Directory + Entra ID | 🟢 **Green** | WIS-017 | `ENABLE_IDENTITY` | **15 tools** — Production-ready |
-| `workday` | Workday HCM | 🟡 **Yellow** | WIS-009 | `ENABLE_WORKDAY` | **7 tools** — Functional; API credentials pending |
-| `audit` | Cross-system drift + reporting | 🟡 **Yellow** | — | `ENABLE_AUDIT` | **11 tools** — Async execution enabled; verification in progress |
-| `itsm` | BMC Helix ITSM | 🔴 **Red** | Planned | `ENABLE_ITSM` | Stub only — credentials not configured |
-| `assets` | Lansweeper + Intune | 🔴 **Red** | Planned | `ENABLE_ASSETS` | Stub only — credentials not configured |
-| `logistics` | FedEx | 🔴 **Red** | Planned | `ENABLE_LOGISTICS` | Stub only — credentials not configured |
+| identity | Active Directory + Entra ID | 🟢 Green | WIS-017 | ENABLE_IDENTITY | Tool tests passing |
+| workday | Workday HCM | 🟡 Yellow | WIS-009 | ENABLE_WORKDAY | Credentials + live validation pending |
+| audit | Cross-system drift + reporting | 🟡 Yellow | WIS-018 | ENABLE_AUDIT | Verification maturing |
+| itsm | BMC Helix ITSM | 🔴 Red | WIS-021 | ENABLE_ITSM | Stub only |
+| assets | Lansweeper + Intune | 🔴 Red | WIS-022 | ENABLE_ASSETS | Stub only |
+| logistics | FedEx | 🔴 Red | WIS-023 | ENABLE_LOGISTICS | Stub only |
 
-**Total Registered Tools:** 33 (15 Identity + 7 Workday + 11 Audit)  
-**Last Updated:** 2026-04-13 (Session: Audit shard async execution)
+## Discipline Drives Quality
 
----
-
-## Project Health: "Discipline Drives Quality"
-
-| Pillar | Status | Evidence |
+| Pillar | Target Standard | Current Signal |
 |---|---|---|
-| **Type Safety** | 🟢 | Pydantic models for all cross-system schemas |
-| **Error Handling** | 🟢 | Enterprise resilience layer with graceful degradation |
-| **Configuration** | 🟢 | `pydantic-settings` validation + feature flag control |
-| **Audit Compliance** | 🟢 | SOC 2 logging (CC7.2/CC6.1) with PII redaction |
-| **Test Coverage** | 🟡 | Pytest suites migrated; live API validation pending |
-| **Mock Support** | 🟢 | Full mock mode via `USE_MOCK=true` for all shards |
+| Type Hinting | Public interfaces typed | 🟢 Pydantic-based schemas in place |
+| Pylance | Zero-error baseline | 🟡 Enforced goal, pending full workspace sweep |
+| Modular Structure | Orchestrator -> shards -> adapters | 🟢 Applied in current architecture |
+| Test Gates | Pre-push tests + validation | 🟢 Active local gate |
+| Security Logging | SOC 2 audit trail with redaction | 🟢 Active |
 
----
+## Sprint Traceability (2026)
+
+| WIS ID | Area | Status |
+|---|---|---|
+| WIS-009 | Workday integration | 🟡 In progress |
+| WIS-017 | Identity integration | 🟢 Production-ready |
+| WIS-018 | Audit capability | 🟡 In progress |
+| WIS-021 | ITSM shard | 🔴 Planned |
+| WIS-022 | Assets shard | 🔴 Planned |
+| WIS-023 | Logistics shard | 🔴 Planned |
+<!-- STATUS_PAGE:END -->
+
 
 ## Folder Structure
 
@@ -240,6 +257,6 @@ All credentials can live in `nexus-mcp/.env` — no need to put them in the Clau
 
 ## Required Permissions
 
-See `mcp-server/README.md` for the full permission matrix for each system.
+See [Local-Setup.md](Local-Setup.md) for the full permission matrix for each system.
 The same requirements apply here — Nexus-MCP is a refactor of that server,
 not a new system.
