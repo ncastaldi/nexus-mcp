@@ -18,6 +18,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "lib"))
 
 from mcp.server.fastmcp import FastMCP
 import mock_data as M
+from adapters import ADUserAdapter, EntraUserAdapter, WorkdayWorkerAdapter
+from schemas import CanonicalUser, FieldDrift, DriftType
 
 _USE_MOCK = os.getenv("USE_MOCK", "false").lower() == "true"
 
@@ -81,50 +83,89 @@ def _get_intune():
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
 def _norm(val: Any) -> str | None:
+    """Normalize value to lowercase string for comparison."""
     return str(val).strip().lower() if val is not None else None
 
 
-def _drift(sys_a: str, sys_b: str, field: str, val_a: Any, val_b: Any) -> dict | None:
+def _compare_field(field_name: str, sys_a: str, val_a: Any, sys_b: str, val_b: Any) -> FieldDrift | None:
+    """Compare a single field between two systems, return FieldDrift if different."""
     if _norm(val_a) != _norm(val_b):
-        return {"field": field, "system_a": sys_a, "value_a": val_a,
-                "system_b": sys_b, "value_b": val_b}
+        return FieldDrift(
+            drift_type=DriftType.FIELD_MISMATCH,
+            field_name=field_name,
+            system_a=sys_a,
+            value_a=str(val_a) if val_a is not None else None,
+            system_b=sys_b,
+            value_b=str(val_b) if val_b is not None else None,
+            severity="medium",
+        )
     return None
 
 
-def _pick(obj: dict | None, *keys: str) -> Any:
-    for k in keys:
-        if obj is None:
-            return None
-        obj = obj.get(k)
-    return obj
+def _compare_users(wd_user: CanonicalUser | None, ad_user: CanonicalUser | None, entra_user: CanonicalUser | None) -> list[FieldDrift]:
+    """Compare canonical user objects across systems and return list of drifts."""
+    drifts: list[FieldDrift] = []
+    
+    # Compare Workday vs AD
+    if wd_user and ad_user:
+        for field_name, wd_val, ad_val in [
+            ("display_name", wd_user.display_name, ad_user.display_name),
+            ("job_title", wd_user.job_title, ad_user.job_title),
+            ("department", wd_user.department, ad_user.department),
+        ]:
+            drift = _compare_field(field_name, "Workday", wd_val, "ActiveDirectory", ad_val)
+            if drift:
+                drifts.append(drift)
+    
+    # Compare Workday vs Entra
+    if wd_user and entra_user:
+        for field_name, wd_val, entra_val in [
+            ("display_name", wd_user.display_name, entra_user.display_name),
+            ("job_title", wd_user.job_title, entra_user.job_title),
+            ("department", wd_user.department, entra_user.department),
+        ]:
+            drift = _compare_field(field_name, "Workday", wd_val, "Entra", entra_val)
+            if drift:
+                drifts.append(drift)
+    
+    # Compare AD vs Entra
+    if ad_user and entra_user:
+        for field_name, ad_val, entra_val in [
+            ("display_name", ad_user.display_name, entra_user.display_name),
+            ("job_title", ad_user.job_title, entra_user.job_title),
+            ("department", ad_user.department, entra_user.department),
+        ]:
+            drift = _compare_field(field_name, "ActiveDirectory", ad_val, "Entra", entra_val)
+            if drift:
+                drifts.append(drift)
+    _name, job_title, and department across all three systems using
+        canonical pydantic schemas for type safety and consistent field names.
 
-
-def _ts() -> str:
-    return datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _week() -> str:
-    t = datetime.date.today()
-    return f"{t.year}-W{t.isocalendar()[1]:02d}"
-
-
-def _count_by(items: list[dict], key: str) -> dict[str, int]:
-    out: dict[str, int] = {}
-    for item in items:
-        v = str(item.get(key) or "unknown")
-        out[v] = out.get(v, 0) + 1
-    return dict(sorted(out.items(), key=lambda x: -x[1]))
-
-
-def _save(report: dict, filename: str) -> str:
-    from config import ReportConfig
-    cfg = ReportConfig()
-    cfg.output_dir.mkdir(parents=True, exist_ok=True)
-    p = cfg.output_dir / filename
-    p.write_text(json.dumps(report, indent=2))
-    return str(p)
-
-
+        Args:
+            email: Primary work email of the user to audit.
+        """
+        if _USE_MOCK:
+            # Get raw dicts from mock data
+            wd_dict = M.WORKDAY_WORKERS_BY_EMAIL.get(email.lower())
+            ad_dict = M.AD_USERS_BY_EMAIL.get(email.lower())
+            entra_dict = M.ENTRA_USERS_BY_MAIL.get(email.lower())
+            
+            # Transform to canonical models
+            wd_user = WorkdayWorkerAdapter.to_canonical(wd_dict) if wd_dict else None
+            ad_user = ADUserAdapter.to_canonical(ad_dict) if ad_dict else None
+            entra_user = EntraUserAdapter.to_canonical(entra_dict) if entra_dict else None
+            
+            # Compare using canonical models
+            drifts = _compare_users(wd_user, ad_user, entra_user)
+            
+            return {
+                "email": email,
+                "systems_checked": ["Workday", "ActiveDirectory", "Entra"],
+                "workday_found": wd_user is not None,
+                "ad_found": ad_user is not None,
+                "entra_found": entra_user is not None,
+                "discrepancy_count": len(drifts),
+                "discrepancies": [d.model_dump(mode='json') for d in drifts]
 # ── Shard registration ────────────────────────────────────────────────────────
 
 def register(mcp: FastMCP) -> None:

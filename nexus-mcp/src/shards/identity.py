@@ -13,6 +13,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "lib"))
 
 from mcp.server.fastmcp import FastMCP
 import mock_data as M
+from adapters import ADUserAdapter, EntraUserAdapter
+from schemas import CanonicalUser
 
 _USE_MOCK = os.getenv("USE_MOCK", "false").lower() == "true"
 
@@ -42,29 +44,61 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool()
     async def ad_get_user(sam_account_name: str) -> dict | None:
-        """Look up an Active Directory user by their sAMAccountName (login name)."""
+        """Look up an Active Directory user by their sAMAccountName (login name).
+        
+        Returns a normalized user object with consistent field names across all systems.
+        """
         if _USE_MOCK:
-            return M.AD_USERS_BY_SAM.get(sam_account_name.lower())
-        return await asyncio.to_thread(_get_ad().get_user, sam_account_name)
+            ad_dict = M.AD_USERS_BY_SAM.get(sam_account_name.lower())
+            if not ad_dict:
+                return None
+            canonical = ADUserAdapter.to_canonical(ad_dict)
+            return canonical.model_dump(mode='json', exclude_none=True)
+        
+        ad_dict = await asyncio.to_thread(_get_ad().get_user, sam_account_name)
+        if not ad_dict:
+            return None
+        canonical = ADUserAdapter.to_canonical(ad_dict)
+        return canonical.model_dump(mode='json', exclude_none=True)
 
     @mcp.tool()
     async def ad_get_user_by_email(email: str) -> dict | None:
-        """Look up an Active Directory user by their email address."""
+        """Look up an Active Directory user by their email address.
+        
+        Returns a normalized user object with consistent field names across all systems.
+        """
         if _USE_MOCK:
-            return M.AD_USERS_BY_EMAIL.get(email.lower())
-        return await asyncio.to_thread(_get_ad().get_user_by_email, email)
+            ad_dict = M.AD_USERS_BY_EMAIL.get(email.lower())
+            if not ad_dict:
+                return None
+            canonical = ADUserAdapter.to_canonical(ad_dict)
+            return canonical.model_dump(mode='json', exclude_none=True)
+        
+        ad_dict = await asyncio.to_thread(_get_ad().get_user_by_email, email)
+        if not ad_dict:
+            return None
+        canonical = ADUserAdapter.to_canonical(ad_dict)
+        return canonical.model_dump(mode='json', exclude_none=True)
 
     @mcp.tool()
     async def ad_search_users(query: str, limit: int = 50) -> list[dict]:
-        """Search Active Directory users by display name or sAMAccountName fragment."""
+        """Search Active Directory users by display name or sAMAccountName fragment.
+        
+        Returns a list of normalized user objects with consistent field names.
+        """
         if _USE_MOCK:
             q = query.lower()
             matches = [
                 u for u in M.AD_USERS
                 if q in u["displayName"].lower() or q in u["sAMAccountName"].lower()
             ]
-            return matches[:limit]
-        return await asyncio.to_thread(_get_ad().search_users, query, limit)
+            # Convert to canonical format
+            canonical_users = [ADUserAdapter.to_canonical(u) for u in matches[:limit]]
+            return [u.model_dump(mode='json', exclude_none=True) for u in canonical_users]
+        
+        ad_dicts = await asyncio.to_thread(_get_ad().search_users, query, limit)
+        canonical_users = [ADUserAdapter.to_canonical(u) for u in ad_dicts]
+        return [u.model_dump(mode='json', exclude_none=True) for u in canonical_users]
 
     @mcp.tool()
     async def ad_list_groups(limit: int = 200) -> list[dict]:
@@ -119,9 +153,14 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool()
     async def entra_list_users(limit: int = 100) -> list[dict]:
-        """List users in Microsoft Entra ID (Azure AD)."""
+        """List users in Microsoft Entra ID (Azure AD).
+        
+        Returns a list of normalized user objects with consistent field names.
+        """
         if _USE_MOCK:
-            return M.ENTRA_USERS[:limit]
+            canonical_users = [EntraUserAdapter.to_canonical(u) for u in M.ENTRA_USERS[:limit]]
+            return [u.model_dump(mode='json', exclude_none=True) for u in canonical_users]
+        
         fields = (
             "id,displayName,userPrincipalName,mail,jobTitle,department,"
             "accountEnabled,createdDateTime,onPremisesSyncEnabled,assignedLicenses"
@@ -129,18 +168,32 @@ def register(mcp: FastMCP) -> None:
         data = await _get_entra().get(
             "/users", params={"$select": fields, "$top": min(limit, 999)}
         )
-        return data.get("value", [])
+        entra_users = data.get("value", [])
+        canonical_users = [EntraUserAdapter.to_canonical(u) for u in entra_users]
+        return [u.model_dump(mode='json', exclude_none=True) for u in canonical_users]
 
     @mcp.tool()
     async def entra_get_user(user_id_or_upn: str) -> dict | None:
-        """Retrieve a single Entra ID user by object ID or UPN (user@company.com)."""
+        """Retrieve a single Entra ID user by object ID or UPN (user@company.com).
+        
+        Returns a normalized user object with consistent field names across all systems.
+        """
         if _USE_MOCK:
-            return (
+            entra_dict = (
                 M.ENTRA_USERS_BY_UPN.get(user_id_or_upn)
                 or M.ENTRA_USERS_BY_MAIL.get(user_id_or_upn)
                 or next((u for u in M.ENTRA_USERS if u["id"] == user_id_or_upn), None)
             )
-        return await _get_entra().get(f"/users/{user_id_or_upn}")
+            if not entra_dict:
+                return None
+            canonical = EntraUserAdapter.to_canonical(entra_dict)
+            return canonical.model_dump(mode='json', exclude_none=True)
+        
+        entra_dict = await _get_entra().get(f"/users/{user_id_or_upn}")
+        if not entra_dict:
+            return None
+        canonical = EntraUserAdapter.to_canonical(entra_dict)
+        return canonical.model_dump(mode='json', exclude_none=True)
 
     @mcp.tool()
     async def entra_list_groups(limit: int = 100) -> list[dict]:
