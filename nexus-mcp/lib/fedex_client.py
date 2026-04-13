@@ -3,6 +3,7 @@
 from typing import Any
 import httpx
 from config import FedExConfig
+from resilience import resilient_http_call
 
 
 class FedExClient:
@@ -29,6 +30,7 @@ class FedExClient:
         self._token = resp.json()["access_token"]
         return self._token
 
+    @resilient_http_call(service_name="FedEx")
     async def post(self, path: str, body: dict) -> Any:
         token = await self.get_token()
         resp = await self._http.post(

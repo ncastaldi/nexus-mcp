@@ -3,6 +3,7 @@
 from typing import Any
 import httpx
 from config import WorkdayConfig
+from resilience import resilient_http_call, handle_404_gracefully
 
 
 class WorkdayClient:
@@ -33,6 +34,7 @@ class WorkdayClient:
         self._token = resp.json()["access_token"]
         return self._token
 
+    @resilient_http_call(service_name="Workday")
     async def get(self, path: str, params: dict | None = None) -> Any:
         token = await self.get_token()
         url = f"{self.cfg.base_url}/{self.cfg.tenant}{path}"
@@ -44,6 +46,7 @@ class WorkdayClient:
         resp.raise_for_status()
         return resp.json()
 
+    @resilient_http_call(service_name="Workday")
     async def raas(self, report_path: str, params: dict | None = None) -> list[dict]:
         token = await self.get_token()
         url = (

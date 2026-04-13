@@ -4,6 +4,7 @@ from typing import Any
 import httpx
 import msal
 from config import IntuneConfig
+from resilience import resilient_http_call
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
 GRAPH_BETA = "https://graph.microsoft.com/beta"
@@ -39,6 +40,7 @@ class IntuneClient:
             raise RuntimeError(f"MSAL token error: {result.get('error_description')}")
         return result["access_token"]
 
+    @resilient_http_call(service_name="Intune")
     async def get(self, path: str, params: dict | None = None, beta: bool = False) -> Any:
         token = await self.get_token()
         base = GRAPH_BETA if beta else GRAPH_BASE

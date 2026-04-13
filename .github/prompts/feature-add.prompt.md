@@ -1,4 +1,5 @@
 ---
+agent: Plan
 name: feature-add
 description: This prompt helps you add a new feature to your existing MCP server by guiding you through branch creation, code drafting, and deployment steps.
 model: Claude Opus 4.6

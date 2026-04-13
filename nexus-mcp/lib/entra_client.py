@@ -4,6 +4,7 @@ from typing import Any
 import httpx
 import msal
 from config import EntraConfig
+from resilience import resilient_http_call, handle_404_gracefully
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
 GRAPH_BETA = "https://graph.microsoft.com/beta"
@@ -42,6 +43,7 @@ class EntraClient:
             raise RuntimeError(f"MSAL token error: {result.get('error_description')}")
         return result["access_token"]
 
+    @resilient_http_call(service_name="Entra")
     async def get(self, path: str, params: dict | None = None, beta: bool = False) -> Any:
         token = await self.get_token()
         base = GRAPH_BETA if beta else GRAPH_BASE
@@ -53,6 +55,7 @@ class EntraClient:
         resp.raise_for_status()
         return resp.json()
 
+    @resilient_http_call(service_name="Entra")
     async def get_all_pages(self, path: str, params: dict | None = None) -> list[dict]:
         results: list[dict] = []
         data = await self.get(path, params)

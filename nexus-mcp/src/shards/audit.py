@@ -161,11 +161,88 @@ def _compare_users(wd_user: CanonicalUser | None, ad_user: CanonicalUser | None,
             return {
                 "email": email,
                 "systems_checked": ["Workday", "ActiveDirectory", "Entra"],
+                "systems_available": ["Workday", "ActiveDirectory", "Entra"],
+                "systems_failed": [],
                 "workday_found": wd_user is not None,
                 "ad_found": ad_user is not None,
                 "entra_found": entra_user is not None,
                 "discrepancy_count": len(drifts),
-                "discrepancies": [d.model_dump(mode='json') for d in drifts]
+                "discrepancies": [d.model_dump(mode='json') for d in drifts],
+            }
+        
+        # Live mode with graceful degradation — each system call wrapped separately
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        systems_available: list[str] = []
+        systems_failed: list[str] = []
+        wd_dict: dict | None = None
+        ad_dict: dict | None = None
+        entra_dict: dict | None = None
+        
+        # Try Workday
+        try:
+            wd_data = await _get_wd().get("/staffing/v6/workers", params={"limit": 500})
+            wd_dict = next(
+                (w for w in wd_data.get("data", [])
+                 if (w.get("primaryWorkEmail") or "").lower() == email.lower()),
+                None,
+            )
+            systems_available.append("Workday")
+            logger.info(f"[audit_user_drift] Workday: {'found' if wd_dict else 'not found'}")
+        except Exception as e:
+            systems_failed.append("Workday")
+            logger.warning(f"[audit_user_drift] Workday unavailable: {e}")
+        
+        # Try Active Directory
+        try:
+            ad_dict = await asyncio.to_thread(_get_ad().get_user_by_email, email)
+            systems_available.append("ActiveDirectory")
+            logger.info(f"[audit_user_drift] AD: {'found' if ad_dict else 'not found'}")
+        except Exception as e:
+            systems_failed.append("ActiveDirectory")
+            logger.warning(f"[audit_user_drift] AD unavailable: {e}")
+        
+        # Try Entra ID
+        try:
+            entra_data = await _get_entra().get(
+                "/users",
+                params={
+                    "$select": "id,displayName,userPrincipalName,mail,jobTitle,department,accountEnabled",
+                    "$top": 999,
+                },
+            )
+            entra_dict = next(
+                (u for u in entra_data.get("value", [])
+                 if _norm(u.get("mail")) == _norm(email)
+                 or _norm(u.get("userPrincipalName")) == _norm(email)),
+                None,
+            )
+            systems_available.append("Entra")
+            logger.info(f"[audit_user_drift] Entra: {'found' if entra_dict else 'not found'}")
+        except Exception as e:
+            systems_failed.append("Entra")
+            logger.warning(f"[audit_user_drift] Entra unavailable: {e}")
+        
+        # Transform to canonical models
+        wd_user = WorkdayWorkerAdapter.to_canonical(wd_dict) if wd_dict else None
+        ad_user = ADUserAdapter.to_canonical(ad_dict) if ad_dict else None
+        entra_user = EntraUserAdapter.to_canonical(entra_dict) if entra_dict else None
+        
+        # Compare using canonical models
+        drifts = _compare_users(wd_user, ad_user, entra_user)
+        
+        return {
+            "email": email,
+            "systems_checked": ["Workday", "ActiveDirectory", "Entra"],
+            "systems_available": systems_available,
+            "systems_failed": systems_failed,
+            "workday_found": wd_user is not None,
+            "ad_found": ad_user is not None,
+            "entra_found": entra_user is not None,
+            "discrepancy_count": len(drifts),
+            "discrepancies": [d.model_dump(mode='json') for d in drifts],
+        }
 # ── Shard registration ────────────────────────────────────────────────────────
 
 def register(mcp: FastMCP) -> None:
@@ -178,107 +255,34 @@ def register(mcp: FastMCP) -> None:
         """Audit a single user across Workday, Active Directory, and Entra ID for field drift.
 
         Compares displayName, jobTitle, and department across all three systems.
+        Uses graceful degradation — continues audit with available systems if some fail.
 
         Args:
             email: Primary work email of the user to audit.
+        
+        Returns:
+            dict with keys:
+                - email: The queried email
+                - systems_checked: List of all systems that were attempted
+                - systems_available: List of systems that responded successfully
+                - systems_failed: List of systems that were unavailable
+                - workday_found/ad_found/entra_found: Whether user exists in each system
+                - discrepancy_count: Number of field mismatches found
+                - discrepancies: List of FieldDrift objects showing differences
         """
         if _USE_MOCK:
-            wd_worker = M.WORKDAY_WORKERS_BY_EMAIL.get(email.lower())
-            ad_user = M.AD_USERS_BY_EMAIL.get(email.lower())
-            entra_user = M.ENTRA_USERS_BY_MAIL.get(email.lower())
-            diffs: list[dict] = []
-            comparisons = [
-                ("displayName", "Workday", _pick(wd_worker, "descriptor"),
-                 "ActiveDirectory", _pick(ad_user, "displayName")),
-                ("displayName", "Workday", _pick(wd_worker, "descriptor"),
-                 "Entra", _pick(entra_user, "displayName")),
-                ("displayName", "ActiveDirectory", _pick(ad_user, "displayName"),
-                 "Entra", _pick(entra_user, "displayName")),
-                ("jobTitle", "Workday", _pick(wd_worker, "primaryJob", "jobProfile", "descriptor"),
-                 "ActiveDirectory", _pick(ad_user, "title")),
-                ("jobTitle", "Workday", _pick(wd_worker, "primaryJob", "jobProfile", "descriptor"),
-                 "Entra", _pick(entra_user, "jobTitle")),
-                ("department", "Workday", _pick(wd_worker, "primaryJob", "businessUnit", "descriptor"),
-                 "ActiveDirectory", _pick(ad_user, "department")),
-                ("department", "Workday", _pick(wd_worker, "primaryJob", "businessUnit", "descriptor"),
-                 "Entra", _pick(entra_user, "department")),
-            ]
-            for field, sa, va, sb, vb in comparisons:
-                d = _drift(sa, sb, field, va, vb)
-                if d:
-                    diffs.append(d)
-            return {
-                "email": email,
-                "systems_checked": ["Workday", "ActiveDirectory", "Entra"],
-                "workday_found": wd_worker is not None,
-                "ad_found": ad_user is not None,
-                "entra_found": entra_user is not None,
-                "discrepancy_count": len(diffs),
-                "discrepancies": diffs,
-            }
-        wd_task = asyncio.create_task(_get_wd().get(
-            "/staffing/v6/workers", params={"limit": 500}
-        ))
-        entra_task = asyncio.create_task(_get_entra().get(
-            "/users",
-            params={
-                "$select": "id,displayName,userPrincipalName,mail,jobTitle,department,accountEnabled",
-                "$top": 999,
-            },
-        ))
-        wd_data, entra_data = await asyncio.gather(wd_task, entra_task)
-        ad_user = await asyncio.to_thread(_get_ad().get_user_by_email, email)
-
-        wd_worker = next(
-            (w for w in wd_data.get("data", [])
-             if (w.get("primaryWorkEmail") or "").lower() == email.lower()),
-            None,
-        )
-        entra_user = next(
-            (u for u in entra_data.get("value", [])
-             if _norm(u.get("mail")) == _norm(email)
-             or _norm(u.get("userPrincipalName")) == _norm(email)),
-            None,
-        )
-
-        diffs: list[dict] = []
-        comparisons = [
-            ("displayName",
-             "Workday", _pick(wd_worker, "descriptor"),
-             "ActiveDirectory", _pick(ad_user, "displayName")),
-            ("displayName",
-             "Workday", _pick(wd_worker, "descriptor"),
-             "Entra", _pick(entra_user, "displayName")),
-            ("displayName",
-             "ActiveDirectory", _pick(ad_user, "displayName"),
-             "Entra", _pick(entra_user, "displayName")),
-            ("jobTitle",
-             "Workday", _pick(wd_worker, "primaryJob", "jobProfile", "descriptor"),
-             "ActiveDirectory", _pick(ad_user, "title")),
-            ("jobTitle",
-             "Workday", _pick(wd_worker, "primaryJob", "jobProfile", "descriptor"),
-             "Entra", _pick(entra_user, "jobTitle")),
-            ("department",
-             "Workday", _pick(wd_worker, "primaryJob", "businessUnit", "descriptor"),
-             "ActiveDirectory", _pick(ad_user, "department")),
-            ("department",
-             "Workday", _pick(wd_worker, "primaryJob", "businessUnit", "descriptor"),
-             "Entra", _pick(entra_user, "department")),
-        ]
-        for field, sa, va, sb, vb in comparisons:
-            d = _drift(sa, sb, field, va, vb)
-            if d:
-                diffs.append(d)
-
-        return {
-            "email": email,
-            "systems_checked": ["Workday", "ActiveDirectory", "Entra"],
-            "workday_found": wd_worker is not None,
-            "ad_found": ad_user is not None,
-            "entra_found": entra_user is not None,
-            "discrepancy_count": len(diffs),
-            "discrepancies": diffs,
-        }
+            # Get raw dicts from mock data
+            wd_dict = M.WORKDAY_WORKERS_BY_EMAIL.get(email.lower())
+            ad_dict = M.AD_USERS_BY_EMAIL.get(email.lower())
+            entra_dict = M.ENTRA_USERS_BY_MAIL.get(email.lower())
+            
+            # Transform to canonical models
+            wd_user = WorkdayWorkerAdapter.to_canonical(wd_dict) if wd_dict else None
+            ad_user = ADUserAdapter.to_canonical(ad_dict) if ad_dict else None
+            entra_user = EntraUserAdapter.to_canonical(entra_dict) if entra_dict else None
+            
+            # Compare using canonical models
+            drifts = _compare_users(wd_user, ad_user, entra_user)
 
     @mcp.tool()
     async def audit_bulk_user_drift(emails: list[str]) -> list[dict]:
@@ -296,14 +300,51 @@ def register(mcp: FastMCP) -> None:
         return await asyncio.gather(*[_one(e) for e in emails[:50]])
 
     @mcp.tool()
+    @mcp.tool()
     async def audit_device_drift(device_name: str) -> dict:
         """Audit a device across Lansweeper, Intune, and BMC Helix CMDB for field drift.
 
         Compares manufacturer and serial number across all three asset systems.
+        Uses graceful degradation — continues audit with available systems if some fail.
 
         Args:
             device_name: The computer/device name to look up.
+        
+        Returns:
+            dict with keys:
+                - device_name: The queried device name
+                - systems_checked: List of all systems that were attempted
+                - systems_available: List of systems that responded successfully
+                - systems_failed: List of systems that were unavailable
+                - lansweeper_found/intune_found/helix_found: Whether device exists in each system
+                - discrepancy_count: Number of field mismatches found
+                - discrepancies: List of drift objects showing differences
         """
+        def _safe_get(obj: dict | None, *keys: str) -> Any:
+            """Safely navigate nested dict keys."""
+            if obj is None:
+                return None
+            current = obj
+            for key in keys:
+                if isinstance(current, dict):
+                    current = current.get(key)
+                else:
+                    return None
+            return current
+        
+        def _compare_device_field(field: str, sys_a: str, val_a: Any, sys_b: str, val_b: Any) -> dict | None:
+            """Compare device field between two systems."""
+            if _norm(val_a) != _norm(val_b):
+                return {
+                    "field": field,
+                    "system_a": sys_a,
+                    "value_a": str(val_a) if val_a else None,
+                    "system_b": sys_b,
+                    "value_b": str(val_b) if val_b else None,
+                    "severity": "medium",
+                }
+            return None
+        
         if _USE_MOCK:
             dn = device_name.lower()
             ls_asset = M.LANSWEEPER_ASSETS_BY_NAME.get(dn)
@@ -312,87 +353,232 @@ def register(mcp: FastMCP) -> None:
             diffs: list[dict] = []
             for field, ik, hk in [("manufacturer", "manufacturer", "Manufacturer"),
                                    ("serialNumber", "serialNumber", "Serial Number")]:
-                ls_val = _pick(ls_asset, field)
-                intune_val = _pick(intune_device, ik)
-                helix_val = _pick(helix_ci, "values", hk)
+                ls_val = _safe_get(ls_asset, field)
+                intune_val = _safe_get(intune_device, ik)
+                helix_val = _safe_get(helix_ci, "values", hk)
                 for sa, sb, va, vb in [
                     ("Lansweeper", "Intune", ls_val, intune_val),
                     ("Lansweeper", "Helix", ls_val, helix_val),
                 ]:
-                    d = _drift(sa, sb, field, va, vb)
+                    d = _compare_device_field(field, sa, sb, va, vb)
                     if d:
                         diffs.append(d)
             return {
                 "device_name": device_name,
                 "systems_checked": ["Lansweeper", "Intune", "HelixCMDB"],
+                "systems_available": ["Lansweeper", "Intune", "HelixCMDB"],
+                "systems_failed": [],
                 "lansweeper_found": ls_asset is not None,
                 "intune_found": intune_device is not None,
                 "helix_found": helix_ci is not None,
                 "discrepancy_count": len(diffs),
                 "discrepancies": diffs,
             }
-        from config import LansweeperConfig
-        site_id = LansweeperConfig().site_id
-        ls_query = """
-        query S($siteId: String!, $q: String!) {
-          site(id: $siteId) {
-            assetResources(
-              pagination: { limit: 5, page: 1 }
-              assetBasicFilters: { assetName: $q }
-            ) {
-              items { assetId assetName operatingSystem manufacturer serialNumber }
+        
+        # Live mode with graceful degradation
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        systems_available: list[str] = []
+        systems_failed: list[str] = []
+        ls_asset: dict | None = None
+        intune_device: dict | None = None
+        helix_ci: dict | None = None
+        
+        # Try Lansweeper
+        try:
+            from config import LansweeperConfig
+            site_id = LansweeperConfig().site_id
+            ls_query = """
+            query S($siteId: String!, $q: String!) {
+              site(id: $siteId) {
+                assetResources(
+                  pagination: { limit: 5, page: 1 }
+                  assetBasicFilters: { assetName: $q }
+                ) {
+                  items { assetId assetName operatingSystem manufacturer serialNumber }
+                }
+              }
             }
-          }
-        }
-        """
-        ls_task = asyncio.create_task(
-            _get_ls().gql(ls_query, {"siteId": site_id, "q": device_name})
-        )
-        intune_task = asyncio.create_task(
-            _get_intune().get("/deviceManagement/managedDevices", params={"$top": 500})
-        )
-        helix_task = asyncio.create_task(
-            _get_helix().get(
+            """
+            ls_data = await _get_ls().gql(ls_query, {"siteId": site_id, "q": device_name})
+            ls_results = ls_data["site"]["assetResources"]["items"]
+            ls_asset = ls_results[0] if ls_results else None
+            systems_available.append("Lansweeper")
+            logger.info(f"[audit_device_drift] Lansweeper: {'found' if ls_asset else 'not found'}")
+        except Exception as e:
+            systems_failed.append("Lansweeper")
+            logger.warning(f"[audit_device_drift] Lansweeper unavailable: {e}")
+        
+        # Try Intune
+        try:
+            intune_data = await _get_intune().get("/deviceManagement/managedDevices", params={"$top": 500})
+            intune_device = next(
+                (d for d in intune_data.get("value", [])
+                 if _norm(d.get("deviceName")) == _norm(device_name)),
+                None,
+            )
+            systems_available.append("Intune")
+            logger.info(f"[audit_device_drift] Intune: {'found' if intune_device else 'not found'}")
+        except Exception as e:
+            systems_failed.append("Intune")
+            logger.warning(f"[audit_device_drift] Intune unavailable: {e}")
+        
+        # Try Helix CMDB
+        try:
+            helix_data = await _get_helix().get(
                 "/api/arsys/v1/entry/BMC.CORE:BMC_ComputerSystem",
                 params={"q": f"'Name' LIKE \"%{device_name}%\"", "limit": 5},
             )
-        )
-        ls_data, intune_data, helix_data = await asyncio.gather(ls_task, intune_task, helix_task)
-
-        ls_results = ls_data["site"]["assetResources"]["items"]
-        ls_asset = ls_results[0] if ls_results else None
-        intune_device = next(
-            (d for d in intune_data.get("value", [])
-             if _norm(d.get("deviceName")) == _norm(device_name)),
-            None,
-        )
-        helix_entries = helix_data.get("entries", [])
-        helix_ci = helix_entries[0] if helix_entries else None
-
+            helix_entries = helix_data.get("entries", [])
+            helix_ci = helix_entries[0] if helix_entries else None
+            systems_available.append("HelixCMDB")
+            logger.info(f"[audit_device_drift] Helix: {'found' if helix_ci else 'not found'}")
+        except Exception as e:
+            systems_failed.append("HelixCMDB")
+            logger.warning(f"[audit_device_drift] Helix unavailable: {e}")
+        
+        # Compare fields across available systems
         diffs: list[dict] = []
         for field, lk, ik, hk in [
             ("manufacturer", "manufacturer", "manufacturer", "Manufacturer"),
             ("serialNumber", "serialNumber", "serialNumber", "Serial Number"),
         ]:
-            ls_val = _pick(ls_asset, field)
-            intune_val = _pick(intune_device, ik)
-            helix_val = _pick(helix_ci, "values", hk)
+            ls_val = _safe_get(ls_asset, field)
+            intune_val = _safe_get(intune_device, ik)
+            helix_val = _safe_get(helix_ci, "values", hk)
+            
             for sa, sb, va, vb in [
                 ("Lansweeper", "Intune", ls_val, intune_val),
                 ("Lansweeper", "Helix", ls_val, helix_val),
             ]:
-                d = _drift(sa, sb, field, va, vb)
+                d = _compare_device_field(field, sa, sb, va, vb)
                 if d:
                     diffs.append(d)
 
         return {
             "device_name": device_name,
             "systems_checked": ["Lansweeper", "Intune", "HelixCMDB"],
+            "systems_available": systems_available,
+            "systems_failed": systems_failed,
             "lansweeper_found": ls_asset is not None,
             "intune_found": intune_device is not None,
             "helix_found": helix_ci is not None,
             "discrepancy_count": len(diffs),
             "discrepancies": diffs,
+        }
+    
+    # ── Health check tools ────────────────────────────────────────────────────
+    
+    @mcp.tool()
+    async def check_system_health() -> dict:
+        """Check availability and response time of all enterprise systems.
+        
+        Useful for proactive monitoring before running bulk audits.
+        Uses resilient HTTP calls with retry logic.
+        
+        Returns:
+            dict with system names as keys, each containing:
+                - available: bool indicating if system is reachable
+                - response_time_ms: int response time in milliseconds (if available)
+                - error: str error message (if unavailable)
+        """
+        import time
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        results = {}
+        
+        # Check Workday
+        start = time.time()
+        try:
+            await _get_wd().get("/staffing/v6/workers", params={"limit": 1})
+            elapsed = int((time.time() - start) * 1000)
+            results["Workday"] = {"available": True, "response_time_ms": elapsed}
+            logger.info(f"[Health Check] Workday: OK ({elapsed}ms)")
+        except Exception as e:
+            elapsed = int((time.time() - start) * 1000)
+            results["Workday"] = {"available": False, "response_time_ms": elapsed, "error": str(e)}
+            logger.warning(f"[Health Check] Workday: FAILED - {e}")
+        
+        # Check Active Directory
+        start = time.time()
+        try:
+            # AD adapter uses blocking PowerShell, run in thread
+            await asyncio.to_thread(_get_ad().get_user, "testuser")
+            elapsed = int((time.time() - start) * 1000)
+            results["ActiveDirectory"] = {"available": True, "response_time_ms": elapsed}
+            logger.info(f"[Health Check] AD: OK ({elapsed}ms)")
+        except Exception as e:
+            elapsed = int((time.time() - start) * 1000)
+            results["ActiveDirectory"] = {"available": False, "response_time_ms": elapsed, "error": str(e)}
+            logger.warning(f"[Health Check] AD: FAILED - {e}")
+        
+        # Check Entra ID
+        start = time.time()
+        try:
+            await _get_entra().get("/users", params={"$top": 1})
+            elapsed = int((time.time() - start) * 1000)
+            results["Entra"] = {"available": True, "response_time_ms": elapsed}
+            logger.info(f"[Health Check] Entra: OK ({elapsed}ms)")
+        except Exception as e:
+            elapsed = int((time.time() - start) * 1000)
+            results["Entra"] = {"available": False, "response_time_ms": elapsed, "error": str(e)}
+            logger.warning(f"[Health Check] Entra: FAILED - {e}")
+        
+        # Check Lansweeper
+        start = time.time()
+        try:
+            from config import LansweeperConfig
+            site_id = LansweeperConfig().site_id
+            query = "query { sites { total } }"
+            await _get_ls().gql(query, {})
+            elapsed = int((time.time() - start) * 1000)
+            results["Lansweeper"] = {"available": True, "response_time_ms": elapsed}
+            logger.info(f"[Health Check] Lansweeper: OK ({elapsed}ms)")
+        except Exception as e:
+            elapsed = int((time.time() - start) * 1000)
+            results["Lansweeper"] = {"available": False, "response_time_ms": elapsed, "error": str(e)}
+            logger.warning(f"[Health Check] Lansweeper: FAILED - {e}")
+        
+        # Check Intune
+        start = time.time()
+        try:
+            await _get_intune().get("/deviceManagement/managedDevices", params={"$top": 1})
+            elapsed = int((time.time() - start) * 1000)
+            results["Intune"] = {"available": True, "response_time_ms": elapsed}
+            logger.info(f"[Health Check] Intune: OK ({elapsed}ms)")
+        except Exception as e:
+            elapsed = int((time.time() - start) * 1000)
+            results["Intune"] = {"available": False, "response_time_ms": elapsed, "error": str(e)}
+            logger.warning(f"[Health Check] Intune: FAILED - {e}")
+        
+        # Check Helix
+        start = time.time()
+        try:
+            await _get_helix().get("/api/arsys/v1/entry/BMC.CORE:BMC_ComputerSystem", params={"limit": 1})
+            elapsed = int((time.time() - start) * 1000)
+            results["Helix"] = {"available": True, "response_time_ms": elapsed}
+            logger.info(f"[Health Check] Helix: OK ({elapsed}ms)")
+        except Exception as e:
+            elapsed = int((time.time() - start) * 1000)
+            results["Helix"] = {"available": False, "response_time_ms": elapsed, "error": str(e)}
+            logger.warning(f"[Health Check] Helix: FAILED - {e}")
+        
+        # Calculate summary statistics
+        total_systems = len(results)
+        available_systems = sum(1 for r in results.values() if r["available"])
+        availability_percentage = int((available_systems / total_systems) * 100)
+        
+        return {
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "systems": results,
+            "summary": {
+                "total_systems": total_systems,
+                "available_systems": available_systems,
+                "unavailable_systems": total_systems - available_systems,
+                "availability_percentage": availability_percentage,
+            }
         }
 
     @mcp.tool()

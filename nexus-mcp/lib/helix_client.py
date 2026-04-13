@@ -3,6 +3,7 @@
 from typing import Any
 import httpx
 from config import HelixConfig
+from resilience import resilient_http_call
 
 
 class HelixClient:
@@ -28,6 +29,7 @@ class HelixClient:
         self._token = resp.text.strip()
         return self._token
 
+    @resilient_http_call(service_name="Helix")
     async def get(self, path: str, params: dict | None = None) -> Any:
         token = await self.get_token()
         resp = await self._http.get(
@@ -38,6 +40,7 @@ class HelixClient:
         resp.raise_for_status()
         return resp.json()
 
+    @resilient_http_call(service_name="Helix")
     async def post(self, path: str, body: dict) -> Any:
         token = await self.get_token()
         resp = await self._http.post(

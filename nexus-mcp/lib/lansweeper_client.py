@@ -3,6 +3,7 @@
 from typing import Any
 import httpx
 from config import LansweeperConfig
+from resilience import resilient_http_call
 
 
 class LansweeperClient:
@@ -28,6 +29,7 @@ class LansweeperClient:
         self._token = resp.json()["access_token"]
         return self._token
 
+    @resilient_http_call(service_name="Lansweeper")
     async def gql(self, query: str, variables: dict | None = None) -> Any:
         token = await self.get_token()
         resp = await self._http.post(
