@@ -9,6 +9,7 @@ src/nexus_mcp.egg-info/top_level.txt
 src/shards/__init__.py
 src/shards/assets.py
 src/shards/audit.py
+src/shards/audit_minimal.py
 src/shards/identity.py
 src/shards/itsm.py
 src/shards/logistics.py
