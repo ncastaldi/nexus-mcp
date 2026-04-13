@@ -41,3 +41,6 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "integration: marks tests requiring live API credentials (skipped by default)",
+]
