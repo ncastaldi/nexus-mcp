@@ -1,0 +1,22 @@
+{
+    "mcpServers": {
+        "nexus": {
+            "command": "python",
+            "args": [
+                "C:/Users/castn1.CORP/OneDrive - Wheels/Repos/mcp_servers/nexus-mcp/src/main.py"
+            ],
+            "cwd": "C:/Users/castn1.CORP/OneDrive - Wheels/Repos/mcp_servers/nexus-mcp",
+            "env": {
+                "USE_MOCK": "true",
+                "ENABLE_AUDIT": "true",
+                "ENABLE_IDENTITY": "true",
+                "ENABLE_WORKDAY": "true",
+                "ENABLE_ITSM": "true",
+                "ENABLE_ASSETS": "true",
+                "ENABLE_LOGISTICS": "true",
+                "PYTHONPATH": "C:/Users/castn1.CORP/OneDrive - Wheels/Repos/mcp_servers/nexus-mcp/src;C:/Users/castn1.CORP/OneDrive - Wheels/Repos/mcp_servers/nexus-mcp/lib",
+                "PYTHONUNBUFFERED": "1"
+            }
+        }
+    }
+}
