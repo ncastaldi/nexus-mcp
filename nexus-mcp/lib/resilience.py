@@ -15,7 +15,7 @@ Usage:
 from __future__ import annotations
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from enum import Enum
 from typing import Any, Callable, TypeVar
 from functools import wraps
@@ -25,7 +25,7 @@ from tenacity import (
     retry,
     stop_after_attempt,
     wait_exponential,
-    retry_if_exception_type,
+    retry_if_exception,
     before_sleep_log,
     RetryError,
 )
@@ -81,7 +81,7 @@ class CircuitBreaker:
         async with self._lock:
             # Check if we should transition from OPEN → HALF_OPEN
             if self.state == CircuitState.OPEN:
-                if self.last_failure_time and datetime.utcnow() - self.last_failure_time > timedelta(seconds=self.timeout_seconds):
+                if self.last_failure_time and datetime.now(UTC) - self.last_failure_time > timedelta(seconds=self.timeout_seconds):
                     logger.info(f"[{self.service_name}] Circuit transitioning OPEN → HALF_OPEN (testing recovery)")
                     self.state = CircuitState.HALF_OPEN
                 else:
@@ -112,7 +112,7 @@ class CircuitBreaker:
         """Handle failed call — increment failures and potentially open circuit."""
         async with self._lock:
             self.consecutive_failures += 1
-            self.last_failure_time = datetime.utcnow()
+            self.last_failure_time = datetime.now(UTC)
             
             if self.state == CircuitState.HALF_OPEN:
                 # Half-open test failed → back to OPEN
@@ -185,16 +185,11 @@ def resilient_http_call(
                 return True
             return False
         
-        # Apply tenacity retry decorator
+        # Apply tenacity retry decorator with custom retry condition
         retrying_func = retry(
             stop=stop_after_attempt(max_attempts),
             wait=wait_exponential(multiplier=1, min=2, max=10),
-            retry=retry_if_exception_type((
-                httpx.TimeoutException,
-                httpx.HTTPStatusError,
-                httpx.ConnectError,
-                httpx.RemoteProtocolError,
-            )),
+            retry=retry_if_exception(should_retry_exception),
             before_sleep=before_sleep_log(logger, logging.INFO),
             reraise=True,
         )(func)

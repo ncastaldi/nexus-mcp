@@ -2,8 +2,13 @@
 
 import pytest
 import asyncio
+import sys
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
+
+# Add lib/ to path so we can import resilience module
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "lib"))
 
 from resilience import (
     resilient_http_call,
