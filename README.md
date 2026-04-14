@@ -225,7 +225,7 @@ pip install -e .
 python src/main.py          # or: nexus-mcp
 ```
 
-## Claude Desktop Config
+## Claude Desktop config
 
 ```json
 {
@@ -236,35 +236,12 @@ python src/main.py          # or: nexus-mcp
       "cwd": "/path/to/nexus-mcp"
     }
   }
-}Sprint Status & Next Steps
-
-### ✅ Recently Completed (2026-04-13)
-- Async audit execution for high-volume scans
-- Enterprise resilience framework (retry logic, circuit breakers)
-- Pydantic schema standardization for cross-system data
-- Code health report with actionable improvements
-
-### 🟡 In Progress
-- **Pytest validation** of all 33 tools against live APIs
-- **Workday API credential approval** (NEXUS-009)
-- **Claude Desktop integration testing** with updated config
-
-### 🔴 Blocked / Pending Approval
-- **ITSM shard (BMC Helix):** AR-JWT credentials pending
-- **Assets shard (Lansweeper + Intune):** GraphQL + Graph API setup
-- **Logistics shard (FedEx):** OAuth2 client registration
+}
+```
 
 ---
 
-## Required Permissions
+## Required permissions
 
-See [Local-Setup.md](Local-Setup.md) for the full permission matrix and credential configuration guide
-All credentials can live in `nexus-mcp/.env` — no need to put them in the Claude config.
-
----
-
-## Required Permissions
-
-See [Local-Setup.md](Local-Setup.md) for the full permission matrix for each system.
-The same requirements apply here — Nexus-MCP is a refactor of that server,
-not a new system.
+See [DEMO_GUIDE.md](DEMO_GUIDE.md) for the full permission matrix, credential configuration, and live-mode setup.
+All credentials live in `nexus-mcp/.env` — no need to put them in the Claude config.

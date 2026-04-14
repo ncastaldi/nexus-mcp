@@ -351,4 +351,4 @@ python src/main.py
 2. Explore the pre-seeded drift scenarios using audit tools in Claude chat
 3. Populate `.env` with live credentials for available systems
 4. Enable additional shards as credentials are provisioned
-5. Review `nexus-mcp/README.md` for the full tool reference and NEXUS work item tracking
+5. Review [README.md](README.md) for the full tool reference and NEXUS work item tracking
