@@ -1,118 +1,231 @@
-# Nexus-MCP status page
+# Nexus-MCP — Enterprise Integration Server
 
-**Updated:** 2026-04-13
+Sharded Model Context Protocol server for enterprise systems.
+Each shard is self-contained and can be toggled independently via feature flags.
 
-This page is the high-visibility execution status for Nexus-MCP, the sharded enterprise integration server supporting 53 tools across 9 system categories.
+---
 
-## Traffic-light legend
+<!-- STATUS_PAGE:BEGIN -->
+## Status Page (Managed)
 
-| Status | Meaning |
-| --- | --- |
-| 🟢 Green | Functional / production-ready |
-| 🟡 Yellow | In progress / development |
-| 🔴 Red | Blocked / not started |
+| Field | Value |
+|---|---|
+| Last Updated | 2026-04-13 |
+| Latest Session Snapshot | SESSION_SNAPSHOT_2026-04-13.md |
+| Change Signal | No staged files |
+| Components Affected | none |
+| TODO/RESTART Markers | none |
+| BREAKING CHANGE (compose ports/volumes) | No |
 
-## Nexus-MCP shard status board
+## Shard Status Board (Traffic Light)
 
-Each shard is independently toggleable via feature flags. Shards load only when their `ENABLE_*` flag is set to `true` in `.env`.
-
-| Shard | System(s) | Tools | Status | Notes | Flag |
+| Shard | System(s) | Status | NEXUS Ref | Flag | Standard Gate |
 |---|---|---|---|---|---|
-| `identity` | Active Directory + Entra ID | 15 | 🟢 Green | Fully functional with AD live adapter | `ENABLE_IDENTITY` |
-| `workday` | Workday HCM | 7 | 🟢 Green | Production-ready with mock & live modes | `ENABLE_WORKDAY` |
-| `audit` | Cross-system drift | 9 | 🟡 Yellow | Minimal stub (restored 2026-04-13 for startup stability) | `ENABLE_AUDIT` |
-| `itsm` | BMC Helix ITSM | 6 | 🔴 Red | Placeholder pending credentials | `ENABLE_ITSM` |
-| `assets` | Lansweeper + Intune | 11 | 🔴 Red | Placeholder pending credentials | `ENABLE_ASSETS` |
-| `logistics` | FedEx | 5 | 🔴 Red | Placeholder pending credentials | `ENABLE_LOGISTICS` |
+| identity | Active Directory + Entra ID | 🟢 Green | NEXUS-017 | ENABLE_IDENTITY | Tool tests passing |
+| workday | Workday HCM | 🟡 Yellow | NEXUS-009 | ENABLE_WORKDAY | Credentials + live validation pending |
+| audit | Cross-system drift + reporting | 🟡 Yellow | NEXUS-018 | ENABLE_AUDIT | Verification maturing |
+| itsm | BMC Helix ITSM | 🔴 Red | NEXUS-021 | ENABLE_ITSM | Stub only |
+| assets | Lansweeper + Intune | 🔴 Red | NEXUS-022 | ENABLE_ASSETS | Stub only |
+| logistics | FedEx | 🔴 Red | NEXUS-023 | ENABLE_LOGISTICS | Stub only |
 
-**Architecture:** Plugin-based sharded model — each shard is a self-contained module (`src/shards/*.py`) that registers its tools via a `register(mcp)` function. The orchestrator (`src/main.py`) checks feature flags and loads only enabled shards. This allows piece-at-a-time deployment without touching the core server code.
+## Discipline Drives Quality
 
-## Architecture wins
+| Pillar | Target Standard | Current Signal |
+|---|---|---|
+| Type Hinting | Public interfaces typed | 🟢 Pydantic-based schemas in place |
+| Pylance | Zero-error baseline | 🟡 Enforced goal, pending full workspace sweep |
+| Modular Structure | Orchestrator -> shards -> adapters | 🟢 Applied in current architecture |
+| Test Gates | Pre-push tests + validation | 🟢 Active local gate |
+| Security Logging | SOC 2 audit trail with redaction | 🟢 Active |
 
-| Engineering discipline pillar | Current state | Evidence |
-| --- | --- | --- |
-| Enterprise resilience (tenacity) | 🟢 Green | All HTTP clients wrapped with automatic retry (exponential backoff 2s→4s→8s), circuit breaker pattern, graceful degradation. Retries 5xx/timeouts only (not 4xx). |
-| Atomic deployment discipline | 🟢 Green | Each shard can be deployed independently via feature flags without risk to other shards. |
-| Type hinting discipline | 🟢 Green | All shards and lib/ adapters use typed return contracts per repository standards. |
-| Modular architecture discipline | 🟢 Green | Orchestrator (main.py), shards (tools), lib/ (adapters) cleanly separated — no cross-contamination. |
-| Mock-mode discipline | 🟢 Green | USE_MOCK flag enables full testing without credentials (lib/mock_data.py with realistic drift scenarios). |
-| SOC 2 audit logging | 🟢 Green | Automatic JSONL audit trail with PII redaction for every tool invocation (CC7.2 / CC6.1). |
-| Traceability discipline | 🟢 Green | Commits, PRs, and session snapshots tracked. Feature flags and shard status mapped to roadmap priorities. |
+## Sprint Traceability (2026)
 
-## Execution roadmap
+| NEXUS ID | Area | Status |
+|---|---|---|
+| NEXUS-009 | Workday integration | 🟡 In progress |
+| NEXUS-017 | Identity integration | 🟢 Production-ready |
+| NEXUS-018 | Audit capability | 🟡 In progress |
+| NEXUS-021 | ITSM shard | 🔴 Planned |
+| NEXUS-022 | Assets shard | 🔴 Planned |
+| NEXUS-023 | Logistics shard | 🔴 Planned |
+<!-- STATUS_PAGE:END -->
 
-| Workstream | Status | Notes | Next steps |
-| --- | --- | --- | --- |
-| **Core shards (Identity + Workday + Audit)** | 🟢 Green | Nexus-MCP sharded architecture fully operational. Server loads all 6 shards. Identity/Workday functional; Audit stubbed pending full implementation. | Complete audit tools implementation; run pytest validation suite. |
-| **Enterprise resilience layer** | 🟢 Green | Retry logic, circuit breaker, and graceful degradation implemented across all HTTP clients. Automated testing validates 4xx vs 5xx distinction. | Monitor production behavior; gather metrics on retry/circuit breaker events. |
-| **API/credentials transition** | 🟡 Yellow | Live AD backend working. Workday API and Entra Graph API awaiting credential approval (WIS-001, WIS-008 "Holding Pattern"). | Provision API tokens; activate live modes in Workday and Entra shards. |
-| **Extended shards (ITSM + Assets + Logistics)** | 🔴 Red | Stub shards created as placeholders. Await credential provisioning and client library development. | Design client adapters; implement stub tools for Helix, Lansweeper, Intune, FedEx. |
+## Folder Structure
 
-## Latest changes (2026-04-13)
-
-**✅ Server startup stabilized** — All shards loading successfully
-- Fixed broken audit shard that prevented server initialization (commit 8240d1b)
-- Audit module temporarily uses minimal stub pending full implementation
-- All 6 shards (identity, workday, audit, itsm, assets, logistics) now register correctly
-
-**📚 Enterprise resilience layer added**
-- Implemented automatic retry logic with exponential backoff (tenacity library)
-- Circuit breaker pattern prevents cascading failures
-- Graceful degradation in audit tools — continues with available systems if some fail
-- Health check tool added for proactive monitoring (commit 15a0007)
-
-**🔧 Stability improvements**
-- Fixed retry logic: Now correctly retries 5xx/timeouts but NOT 4xx errors
-- Updated deprecated datetime calls for Python 3.14+ compatibility
-- All HTTP clients (Workday, Entra, AD, Intune, Lansweeper, FedEx, Helix) wrapped with resilience decorators
-
-## Recent activity (from git history)
-
-- Added local development quick-start and operational startup guidance.
-- Added formalized README update prompt for repeatable status refreshes.
-- Refined Workday runtime modular structure and validated three core tools.
-- Completed type-hint quality refinements consistent with Pylance discipline.
-- Added four mismatch-detection tools for status, title, department, and name variance review.
-- Added focused pytest coverage for Workday mismatch scans and MCP wrappers.
-
-## Next milestones
-
-| Milestone | ID | Status | Exit criteria |
-| --- | --- | --- | --- |
-| Nexus-MCP verification | Integration | 🟡 Yellow | All mock-mode tools tested; pytest passes; Pylance zero errors; SOC 2 audit log verified |
-| Live credential integration | WIS-008, WIS-001-003 | 🔴 Red | Non-prod credentials approved, Entra + Workday API backends operational |
-| Extended shard activation | Phase 2 | 🔴 Red | ITSM, Assets, Logistics shards transition from Red to Yellow with stub client implementations |
-
-## Reference documents
-
-### Nexus-MCP core
-
-- [Nexus-MCP comprehensive README](nexus-mcp/README.md) — full tool reference, shard architecture, and API docs
-- [Local setup guide](nexus-mcp/Local-Setup.md) — installation, configuration, feature flags, and troubleshooting
-- [Nexus orchestrator](nexus-mcp/src/main.py) — feature flag logic and shard loader
-- [SOC 2 audit logger](nexus-mcp/lib/audit_log.py) — automatic PII redaction and JSONL event writer
-
-### Legacy implementation (archived for reference)
-
-- [Identity MCP server](Identity/identity_mcp_server.py) — original AD tool implementation (see identity shard)
-- [Workday MCP server](Workday/workday-mcp/server.py) — original worker + drift tools (see workday + audit shards)
-- [Workday execution backlog](Workday/Planning/workday-ad-identity-sync-next-steps.md)
-- [Workday sprint board](Workday/Planning/workday-ad-identity-sync-sprint-board.md)
-- [Workday implementation plan](Workday/Planning/workday-mcp-implementation-plan
-```bash
-cd nexus-mcp
-python -m venv .venv
-source .venv/Scripts/activate  # Windows: .venv\Scripts\Activate.ps1
-pip install -e .
-cp .env.example .env
-
-# Edit .env: set USE_MOCK=true
-python src/main.py
+```
+nexus-mcp/
+├── src/
+│   ├── main.py              # Core Orchestrator — reads flags, loads shards
+│   └── shards/              # The 6 Shards (one file = one system domain)
+│       ├── __init__.py
+│       ├── identity.py      # 🟢 AD & Entra tools
+│       ├── workday.py       # 🟡 Worker & Org tools
+│       ├── itsm.py          # 🔴 BMC Helix tools
+│       ├── assets.py        # 🔴 Lansweeper + Intune tools
+│       ├── logistics.py     # 🔴 FedEx tools
+│       └── audit.py         # 🟡 Cross-system drift + reporting
+├── lib/                     # Low-level system adapters (no tool logic here)
+│   ├── config.py
+│   ├── ad_adapter.py        # LDAP/AD connection wrapper
+│   ├── entra_client.py      # Microsoft Graph (Entra)
+│   ├── workday_client.py    # Workday REST + OAuth2
+│   ├── helix_client.py      # BMC Helix AR-JWT auth
+│   ├── lansweeper_client.py # Lansweeper GraphQL
+│   ├── intune_client.py     # Microsoft Graph (Intune)
+│   └── fedex_client.py      # FedEx REST + OAuth2
+├── tests/
+├── .env                     # Feature flags + credentials
+├── .env.example             # Template — copy this to .env
+└── README.md
 ```
 
-See [nexus-mcp/Local-Setup.md](nexus-mcp/Local-Setup.md) for full installation guide.
+---
 
-### Claude Desktop configuration
+## Architecture: The Shard Contract
+
+Every shard file exposes exactly one function:
+
+```python
+def register(mcp: FastMCP) -> None:
+    @mcp.tool()
+    async def my_tool(...) -> ...:
+        """Tool docstring visible to the LLM."""
+        ...
+```
+
+The orchestrator (`src/main.py`) reads feature flags and calls `register(mcp)` for each enabled shard. **No other file is changed to add or remove a shard.**
+
+### Adding a new shard
+
+1. Create `src/shards/my_system.py` following the template above.
+2. Add the adapter to `lib/` if needed.
+3. Add one line to `src/main.py`:
+
+   ```python
+   from shards import my_system
+   if _enabled("MY_SYSTEM"):
+       my_system.register(mcp)
+   ```
+
+4. Add `ENABLE_MY_SYSTEM=true` to `.env`.
+
+### Holding pattern
+
+Leave a shard unregistered (or set flag to `false`) to hold it without breaking anything:
+
+```python
+# 🔴 Planned — credentials not yet available
+# if _enabled("MY_SYSTEM"):
+#     my_system.register(mcp)
+```
+
+---
+
+## Tools Reference
+
+### Identity shard (🟢)
+
+| Tool | Description |
+|---|---|
+| `ad_get_user` | Look up AD user by sAMAccountName |
+| `ad_get_user_by_email` | Look up AD user by email |
+| `ad_search_users` | Search AD by display name fragment |
+| `ad_list_groups` | List all AD groups |
+| `ad_get_group_members` | Members of a group by DN |
+| `ad_get_disabled_accounts` | All disabled AD accounts |
+| `ad_get_stale_accounts` | Accounts inactive beyond N days |
+| `entra_list_users` | List Entra ID users |
+| `entra_get_user` | Get user by ID or UPN |
+| `entra_list_groups` | List Entra groups |
+| `entra_get_group_members` | Members of an Entra group |
+| `entra_list_service_principals` | List app registrations |
+| `entra_get_conditional_access_policies` | List CA policies |
+| `entra_get_signin_logs` | Recent sign-in logs |
+| `entra_get_risky_users` | Identity Protection risky users |
+
+### Workday shard (🟡)
+
+| Tool | Description |
+|---|---|
+| `workday_list_workers` | Paginated worker list |
+| `workday_get_worker` | Worker by Workday ID |
+| `workday_find_worker_by_email` | Worker lookup by email |
+| `workday_list_positions` | Open and filled positions |
+| `workday_get_compensation` | Compensation details |
+| `workday_list_organizations` | Supervisory orgs |
+| `workday_run_raas_report` | Execute a RaaS custom report |
+
+### ITSM shard (🔴)
+
+| Tool | Description |
+|---|---|
+| `helix_list_incidents` | Incidents (filterable by status/assignee) |
+| `helix_get_incident` | Incident by Entry ID |
+| `helix_list_changes` | Change requests |
+| `helix_get_problem` | Problem investigation ticket |
+| `helix_search_cmdb` | CMDB CI search by name |
+| `helix_list_cmdb_assets` | Hardware assets from CMDB |
+
+### Assets shard (🔴)
+
+| Tool | Description |
+|---|---|
+| `lansweeper_list_assets` | Asset list (filterable by type) |
+| `lansweeper_get_asset` | Asset by ID |
+| `lansweeper_get_software` | Installed software on asset |
+| `lansweeper_search_assets` | Search by name/IP/serial |
+| `intune_list_managed_devices` | Managed device inventory |
+| `intune_get_managed_device` | Device by ID |
+| `intune_get_noncompliant_devices` | Non-compliant devices |
+| `intune_list_compliance_policies` | Compliance policies |
+| `intune_list_configuration_profiles` | Config profiles |
+| `intune_list_apps` | Deployed app list |
+| `intune_get_autopilot_devices` | Autopilot registrations |
+
+### Logistics shard (🔴)
+
+| Tool | Description |
+|---|---|
+| `fedex_track_shipment` | Track by tracking number |
+| `fedex_track_multiple` | Track up to 30 at once |
+| `fedex_get_shipment_events` | Scan event history |
+| `fedex_validate_address` | Address validation |
+| `fedex_get_rates` | Rate quote between postal codes |
+
+### Audit shard (🟡)
+
+| Tool | Description | Execution |
+|---|---|---|
+| `audit_user_drift` | Single user across Workday / AD / Entra | Async |
+| `audit_bulk_user_drift` | Up to 50 users concurrently | Async |
+| `audit_device_drift` | Single device across Lansweeper / Intune / Helix | Async |
+| `audit_entra_ad_sync_drift` | Full Entra→AD sync scan | Async |
+| `audit_intune_lansweeper_device_drift` | Intune vs Lansweeper reconciliation | Async |
+| `generate_weekly_report` | Full weekly cross-system report | Async |
+| `generate_compliance_report` | Device + identity risk snapshot | Async |
+| `generate_asset_reconciliation_report` | Intune vs Lansweeper diff | Async |
+| `generate_itsm_weekly_summary` | Helix ticket volume summary | Async |
+| `nexus_audit_recent` | Query recent audit events (last N days) | Sync |
+| `nexus_audit_stats` | Aggregate statistics on audit activity | Sync |
+
+**Recent Improvements (2026-04-13):**
+
+- ✅ Async execution for all drift detection scans
+- ✅ MCP protocol verification script (`verify_mcp_protocol.py`)
+- ✅ Resilience layer with retry logic and graceful degradation
+
+---
+
+## Setup
+
+```bash
+cd nexus-mcp
+cp .env.example .env        # fill in credentials and set feature flags
+pip install -e .
+python src/main.py          # or: nexus-mcp
+```
+
+## Claude Desktop Config
 
 ```json
 {
@@ -120,19 +233,38 @@ See [nexus-mcp/Local-Setup.md](nexus-mcp/Local-Setup.md) for full installation g
     "nexus": {
       "command": "python",
       "args": ["src/main.py"],
-      "cwd": "/path/to/mcp_servers/nexus-mcp",
-      "env": {
-        "USE_MOCK": "true"
-      }
+      "cwd": "/path/to/nexus-mcp"
     }
   }
-}
-```
+}Sprint Status & Next Steps
 
-Restart Claude Desktop to load the Nexus tool
-- [Workday execution backlog](Workday/Planning/workday-ad-identity-sync-next-steps.md)
-- [Workday sprint board](Workday/Planning/workday-ad-identity-sync-sprint-board.md)
-- [Workday implementation plan](Workday/Planning/workday-mcp-implementation-plan.md)
-- [Workday installation guide](Workday/Planning/workday-mcp-install-guide.md)
-- [Workday runtime entrypoint](Workday/workday-mcp/server.py)
-- [Operational startup guidance](Local%20Setup.md)
+### ✅ Recently Completed (2026-04-13)
+- Async audit execution for high-volume scans
+- Enterprise resilience framework (retry logic, circuit breakers)
+- Pydantic schema standardization for cross-system data
+- Code health report with actionable improvements
+
+### 🟡 In Progress
+- **Pytest validation** of all 33 tools against live APIs
+- **Workday API credential approval** (NEXUS-009)
+- **Claude Desktop integration testing** with updated config
+
+### 🔴 Blocked / Pending Approval
+- **ITSM shard (BMC Helix):** AR-JWT credentials pending
+- **Assets shard (Lansweeper + Intune):** GraphQL + Graph API setup
+- **Logistics shard (FedEx):** OAuth2 client registration
+
+---
+
+## Required Permissions
+
+See [Local-Setup.md](Local-Setup.md) for the full permission matrix and credential configuration guide
+All credentials can live in `nexus-mcp/.env` — no need to put them in the Claude config.
+
+---
+
+## Required Permissions
+
+See [Local-Setup.md](Local-Setup.md) for the full permission matrix for each system.
+The same requirements apply here — Nexus-MCP is a refactor of that server,
+not a new system.
