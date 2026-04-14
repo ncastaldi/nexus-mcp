@@ -134,14 +134,14 @@ def render_status_block(
 
 ## Shard Status Board (Traffic Light)
 
-| Shard | System(s) | Status | WIS Ref | Flag | Standard Gate |
+| Shard | System(s) | Status | NEXUS Ref | Flag | Standard Gate |
 |---|---|---|---|---|---|
-| identity | Active Directory + Entra ID | 🟢 Green | WIS-017 | ENABLE_IDENTITY | Tool tests passing |
-| workday | Workday HCM | 🟡 Yellow | WIS-009 | ENABLE_WORKDAY | Credentials + live validation pending |
-| audit | Cross-system drift + reporting | 🟡 Yellow | WIS-018 | ENABLE_AUDIT | Verification maturing |
-| itsm | BMC Helix ITSM | 🔴 Red | WIS-021 | ENABLE_ITSM | Stub only |
-| assets | Lansweeper + Intune | 🔴 Red | WIS-022 | ENABLE_ASSETS | Stub only |
-| logistics | FedEx | 🔴 Red | WIS-023 | ENABLE_LOGISTICS | Stub only |
+| identity | Active Directory + Entra ID | 🟢 Green | NEXUS-017 | ENABLE_IDENTITY | Tool tests passing |
+| workday | Workday HCM | 🟡 Yellow | NEXUS-009 | ENABLE_WORKDAY | Credentials + live validation pending |
+| audit | Cross-system drift + reporting | 🟡 Yellow | NEXUS-018 | ENABLE_AUDIT | Verification maturing |
+| itsm | BMC Helix ITSM | 🔴 Red | NEXUS-021 | ENABLE_ITSM | Stub only |
+| assets | Lansweeper + Intune | 🔴 Red | NEXUS-022 | ENABLE_ASSETS | Stub only |
+| logistics | FedEx | 🔴 Red | NEXUS-023 | ENABLE_LOGISTICS | Stub only |
 
 ## Discipline Drives Quality
 
@@ -155,14 +155,14 @@ def render_status_block(
 
 ## Sprint Traceability (2026)
 
-| WIS ID | Area | Status |
+| NEXUS ID | Area | Status |
 |---|---|---|
-| WIS-009 | Workday integration | 🟡 In progress |
-| WIS-017 | Identity integration | 🟢 Production-ready |
-| WIS-018 | Audit capability | 🟡 In progress |
-| WIS-021 | ITSM shard | 🔴 Planned |
-| WIS-022 | Assets shard | 🔴 Planned |
-| WIS-023 | Logistics shard | 🔴 Planned |
+| NEXUS-009 | Workday integration | 🟡 In progress |
+| NEXUS-017 | Identity integration | 🟢 Production-ready |
+| NEXUS-018 | Audit capability | 🟡 In progress |
+| NEXUS-021 | ITSM shard | 🔴 Planned |
+| NEXUS-022 | Assets shard | 🔴 Planned |
+| NEXUS-023 | Logistics shard | 🔴 Planned |
 {STATUS_END}
 """
 

@@ -6,12 +6,12 @@ A complete reference of every service and tool currently registered in the Nexus
 
 ## Active Directory
 
-**Shard:** `identity` | **Status:** 🟢 Green (WIS-017)
+**Shard:** `identity` | **Status:** 🟢 Green (NEXUS-017)
 
 | Tool | Description |
 |---|---|
-| `ad_get_disabled_accounts` | Returns all disabled user accounts in Active Directory (userAccountControl = 514). |
-| `ad_get_group_members` | Returns all members of an AD group by its distinguished name (DN). |
+| `ad_get_disabled_accounts` | Returns all disabled user accounts in Active Directory. |
+| `ad_get_group_members` | Returns all members of an AD group by its distinguished name. |
 | `ad_get_stale_accounts` | Returns active AD accounts with no recorded login activity within a configurable number of days (default: 90). |
 | `ad_get_user` | Looks up a single AD user by their sAMAccountName (login name) and returns a normalized user object. |
 | `ad_get_user_by_email` | Looks up a single AD user by their email address and returns a normalized user object. |
@@ -66,7 +66,7 @@ A complete reference of every service and tool currently registered in the Nexus
 
 ## Microsoft Entra ID
 
-**Shard:** `identity` | **Status:** 🟢 Green (WIS-017)
+**Shard:** `identity` | **Status:** 🟢 Green (NEXUS-017)
 
 | Tool | Description |
 |---|---|
@@ -112,7 +112,7 @@ A complete reference of every service and tool currently registered in the Nexus
 
 ## Workday
 
-**Shard:** `workday` | **Status:** 🟡 Yellow (WIS-009)
+**Shard:** `workday` | **Status:** 🟡 Yellow (NEXUS-009)
 
 | Tool | Description |
 |---|---|

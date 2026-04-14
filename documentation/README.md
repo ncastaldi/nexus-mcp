@@ -19,14 +19,14 @@ Each shard is self-contained and can be toggled independently via feature flags.
 
 ## Shard Status Board (Traffic Light)
 
-| Shard | System(s) | Status | WIS Ref | Flag | Standard Gate |
+| Shard | System(s) | Status | NEXUS Ref | Flag | Standard Gate |
 |---|---|---|---|---|---|
-| identity | Active Directory + Entra ID | 🟢 Green | WIS-017 | ENABLE_IDENTITY | Tool tests passing |
-| workday | Workday HCM | 🟡 Yellow | WIS-009 | ENABLE_WORKDAY | Credentials + live validation pending |
-| audit | Cross-system drift + reporting | 🟡 Yellow | WIS-018 | ENABLE_AUDIT | Verification maturing |
-| itsm | BMC Helix ITSM | 🔴 Red | WIS-021 | ENABLE_ITSM | Stub only |
-| assets | Lansweeper + Intune | 🔴 Red | WIS-022 | ENABLE_ASSETS | Stub only |
-| logistics | FedEx | 🔴 Red | WIS-023 | ENABLE_LOGISTICS | Stub only |
+| identity | Active Directory + Entra ID | 🟢 Green | NEXUS-017 | ENABLE_IDENTITY | Tool tests passing |
+| workday | Workday HCM | 🟡 Yellow | NEXUS-009 | ENABLE_WORKDAY | Credentials + live validation pending |
+| audit | Cross-system drift + reporting | 🟡 Yellow | NEXUS-018 | ENABLE_AUDIT | Verification maturing |
+| itsm | BMC Helix ITSM | 🔴 Red | NEXUS-021 | ENABLE_ITSM | Stub only |
+| assets | Lansweeper + Intune | 🔴 Red | NEXUS-022 | ENABLE_ASSETS | Stub only |
+| logistics | FedEx | 🔴 Red | NEXUS-023 | ENABLE_LOGISTICS | Stub only |
 
 ## Discipline Drives Quality
 
@@ -40,16 +40,15 @@ Each shard is self-contained and can be toggled independently via feature flags.
 
 ## Sprint Traceability (2026)
 
-| WIS ID | Area | Status |
+| NEXUS ID | Area | Status |
 |---|---|---|
-| WIS-009 | Workday integration | 🟡 In progress |
-| WIS-017 | Identity integration | 🟢 Production-ready |
-| WIS-018 | Audit capability | 🟡 In progress |
-| WIS-021 | ITSM shard | 🔴 Planned |
-| WIS-022 | Assets shard | 🔴 Planned |
-| WIS-023 | Logistics shard | 🔴 Planned |
+| NEXUS-009 | Workday integration | 🟡 In progress |
+| NEXUS-017 | Identity integration | 🟢 Production-ready |
+| NEXUS-018 | Audit capability | 🟡 In progress |
+| NEXUS-021 | ITSM shard | 🔴 Planned |
+| NEXUS-022 | Assets shard | 🔴 Planned |
+| NEXUS-023 | Logistics shard | 🔴 Planned |
 <!-- STATUS_PAGE:END -->
-
 
 ## Folder Structure
 
@@ -101,11 +100,13 @@ The orchestrator (`src/main.py`) reads feature flags and calls `register(mcp)` f
 1. Create `src/shards/my_system.py` following the template above.
 2. Add the adapter to `lib/` if needed.
 3. Add one line to `src/main.py`:
+
    ```python
    from shards import my_system
    if _enabled("MY_SYSTEM"):
        my_system.register(mcp)
    ```
+
 4. Add `ENABLE_MY_SYSTEM=true` to `.env`.
 
 ### Holding pattern
@@ -123,6 +124,7 @@ Leave a shard unregistered (or set flag to `false`) to hold it without breaking 
 ## Tools Reference
 
 ### Identity shard (🟢)
+
 | Tool | Description |
 |---|---|
 | `ad_get_user` | Look up AD user by sAMAccountName |
@@ -142,6 +144,7 @@ Leave a shard unregistered (or set flag to `false`) to hold it without breaking 
 | `entra_get_risky_users` | Identity Protection risky users |
 
 ### Workday shard (🟡)
+
 | Tool | Description |
 |---|---|
 | `workday_list_workers` | Paginated worker list |
@@ -153,6 +156,7 @@ Leave a shard unregistered (or set flag to `false`) to hold it without breaking 
 | `workday_run_raas_report` | Execute a RaaS custom report |
 
 ### ITSM shard (🔴)
+
 | Tool | Description |
 |---|---|
 | `helix_list_incidents` | Incidents (filterable by status/assignee) |
@@ -163,6 +167,7 @@ Leave a shard unregistered (or set flag to `false`) to hold it without breaking 
 | `helix_list_cmdb_assets` | Hardware assets from CMDB |
 
 ### Assets shard (🔴)
+
 | Tool | Description |
 |---|---|
 | `lansweeper_list_assets` | Asset list (filterable by type) |
@@ -178,6 +183,7 @@ Leave a shard unregistered (or set flag to `false`) to hold it without breaking 
 | `intune_get_autopilot_devices` | Autopilot registrations |
 
 ### Logistics shard (🔴)
+
 | Tool | Description |
 |---|---|
 | `fedex_track_shipment` | Track by tracking number |
@@ -187,6 +193,7 @@ Leave a shard unregistered (or set flag to `false`) to hold it without breaking 
 | `fedex_get_rates` | Rate quote between postal codes |
 
 ### Audit shard (🟡)
+
 | Tool | Description | Execution |
 |---|---|---|
 | `audit_user_drift` | Single user across Workday / AD / Entra | Async |
@@ -202,6 +209,7 @@ Leave a shard unregistered (or set flag to `false`) to hold it without breaking 
 | `nexus_audit_stats` | Aggregate statistics on audit activity | Sync |
 
 **Recent Improvements (2026-04-13):**
+
 - ✅ Async execution for all drift detection scans
 - ✅ MCP protocol verification script (`verify_mcp_protocol.py`)
 - ✅ Resilience layer with retry logic and graceful degradation
@@ -238,7 +246,7 @@ python src/main.py          # or: nexus-mcp
 
 ### 🟡 In Progress
 - **Pytest validation** of all 33 tools against live APIs
-- **Workday API credential approval** (WIS-009)
+- **Workday API credential approval** (NEXUS-009)
 - **Claude Desktop integration testing** with updated config
 
 ### 🔴 Blocked / Pending Approval
