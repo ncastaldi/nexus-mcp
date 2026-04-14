@@ -24,3 +24,21 @@ dist/
 build/
 *.egg-info/
 __pycache__/
+
+# ── Nexus-MCP Specific Exclusions ───────────────────────────────────────────
+
+# SOC 2 Audit Logs (CC7.2 / CC6.1)
+# These contain redacted but sensitive system activity
+logs/*.jsonl
+
+# Generated Operational Reports (WIS-019)
+# These contain real system snapshots and should not be version controlled
+reports/*.json
+
+# Credentials / Local Overrides
+.env.test
+.env.local
+
+# IDE & Environment
+.replit
+.history/
