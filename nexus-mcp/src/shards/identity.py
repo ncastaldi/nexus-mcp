@@ -122,6 +122,15 @@ def register(mcp: FastMCP) -> None:
         return []
 
     @mcp.tool()
+    async def ad_get_user_groups(sam_account_name: str) -> list[str]:
+        """Get all AD groups for a specific user."""
+        if _USE_MOCK:
+            # Mock logic here...
+            return ["Domain Users", "Wheels-IT"]
+        
+        return await _get_ad().get_user_groups(sam_account_name)
+
+    @mcp.tool()
     async def ad_get_group_members(group_dn: str) -> list[dict]:
         """Return all members of an Active Directory group by its distinguished name."""
         if _USE_MOCK:
