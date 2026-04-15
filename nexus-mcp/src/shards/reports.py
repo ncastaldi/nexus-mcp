@@ -6,10 +6,11 @@ import logging
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 import aiofiles
 from mcp.server.fastmcp import FastMCP
+from report_templates import ReportFormat, render as _render
 
 logger = logging.getLogger("nexus-mcp.reports")
 
@@ -55,25 +56,34 @@ def register(mcp: FastMCP) -> None:
         content: str,
         subfolder: Optional[str] = None,
         filename: Optional[str] = None,
+        format: Literal["md", "html", "pdf", "docx"] = "md",
     ) -> dict:
         """Save markdown content to the configured reports directory.
 
-        Accepts a large markdown string, writes it as a .md file, and returns
-        only a small metadata dict (path, filename, size_bytes) so the chat
-        context stays lightweight regardless of report size.
+        Accepts a markdown string, converts it to the requested format, writes
+        it to disk, and returns a small metadata dict so the chat context stays
+        lightweight regardless of report size.
 
         Args:
             title: Human-readable report title. Used to derive filename when
                    'filename' is not provided.
-            content: Full markdown body to write to disk.
+            content: Full markdown body to render and write to disk.
             subfolder: Optional subdirectory under the output dir (e.g. "identity").
                        Non-alphanumeric characters are replaced with hyphens.
             filename: Override filename base (without extension). Defaults to a
                       slugified version of 'title' with an ISO timestamp suffix.
+            format: Output format — "md" (default), "html", "pdf", or "docx".
+                    Extra packages are required for non-markdown formats:
+                      html/pdf → pip install markdown  (+ weasyprint for pdf)
+                      pdf      → also needs GTK3 DLLs on Windows
+                      docx     → pip install python-docx
+                    Install all at once: pip install "nexus-mcp[report]"
 
         Returns:
             {"status": "saved", "path": str, "filename": str, "size_bytes": int}
         """
+        fmt = ReportFormat(format)
+
         base_dir = _output_dir
         if subfolder:
             safe_sub = re.sub(r"[^\w\-]", "-", subfolder.strip())
@@ -83,7 +93,7 @@ def register(mcp: FastMCP) -> None:
         safe_filename = (
             re.sub(r"[^\w\-]", "-", filename.strip()) if filename else _slugify(title)
         )
-        final_filename = f"{safe_filename}-{timestamp}.md"
+        final_filename = f"{safe_filename}-{timestamp}.{fmt.extension}"
         abs_path = (base_dir / final_filename).resolve()
 
         # Safety guard: keep all writes inside the permitted output tree
@@ -97,8 +107,16 @@ def register(mcp: FastMCP) -> None:
 
         abs_path.parent.mkdir(parents=True, exist_ok=True)
 
-        async with aiofiles.open(abs_path, "w", encoding="utf-8") as f:
-            await f.write(content)
+        try:
+            rendered = _render(content, fmt, title=title)
+        except ImportError as exc:
+            return {"status": "error", "error": str(exc)}
+
+        if fmt.is_binary:
+            abs_path.write_bytes(rendered)
+        else:
+            async with aiofiles.open(abs_path, "w", encoding="utf-8") as f:
+                await f.write(rendered)
 
         size_bytes = abs_path.stat().st_size
         logger.info("save_report: wrote %d bytes → %s", size_bytes, abs_path)

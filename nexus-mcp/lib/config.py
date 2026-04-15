@@ -135,8 +135,8 @@ class ReportConfig(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore"
     )
-    
-    output_dir: Path = Path("./reports")
+
+    output_dir: Path = Path("./output-reports")
     
     @field_validator("output_dir", mode="before")
     @classmethod

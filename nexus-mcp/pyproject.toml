@@ -32,6 +32,14 @@ test = [
     "pytest-cov>=5.0.0",
     "pytest-asyncio>=0.24.0",
 ]
+report = [
+    # Markdown → HTML conversion
+    "markdown>=3.6",
+    # HTML → PDF  (Windows: also needs GTK3 DLLs — see weasyprint docs)
+    "weasyprint>=62.0",
+    # Markdown → DOCX
+    "python-docx>=1.1.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
