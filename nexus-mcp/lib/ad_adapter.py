@@ -1,3 +1,7 @@
+# Rule:
+# ad_adapter.py outputs normalized snake_case fields
+# All adapters (ADUserAdapter, EntraUserAdapter, etc.) consume that contract
+
 from __future__ import annotations
 
 import asyncio
@@ -118,20 +122,21 @@ class ActiveDirectoryIdentityBackend:
         # Build PowerShell command using JSON output for reliable parsing
         escaped_username = self._escape_ps_single_quoted(username)
         command = f"""
-            $user = Get-ADUser -Filter "samAccountName -eq '{escaped_username}'" -Properties GivenName,Surname,DisplayName,Enabled,DistinguishedName,Description,lastLogonTimestamp -ErrorAction Stop
-            if ($user) {{
-                $lastLogon = if ($user.lastLogonTimestamp) {{ [DateTime]::FromFileTime($user.lastLogonTimestamp).ToUniversalTime().ToString('o') }} else {{ $null }}
-                @{{
-                    username = $user.SamAccountName
-                    first_name = if ($user.GivenName) {{ $user.GivenName }} else {{ '' }}
-                    last_name = if ($user.Surname) {{ $user.Surname }} else {{ '' }}
-                    display_name = if ($user.DisplayName) {{ $user.DisplayName }} else {{ '' }}
-                    enabled = $user.Enabled
-                    ou = $user.DistinguishedName
-                    description = if ($user.Description) {{ $user.Description }} else {{ '' }}
-                    last_logon_utc = $lastLogon
-                }} | ConvertTo-Json -Compress
-            }}
+        $user = Get-ADUser -Filter "samAccountName -eq '{escaped_username}'" -Properties displayName,mail,givenName,sn,Enabled,DistinguishedName,Description,lastLogonTimestamp -ErrorAction Stop
+        if ($user) {{
+            $lastLogon = if ($user.lastLogonTimestamp) {{ [DateTime]::FromFileTime($user.lastLogonTimestamp).ToUniversalTime().ToString('o') }} else {{ $null }}
+            @{{
+                username = $user.SamAccountName
+                display_name = if ($user.displayName) {{$user.displayName}} else {{$user.Name}}
+                first_name = if ($user.givenName) {{$user.givenName}} else {{''}}
+                last_name = if ($user.sn) {{$user.sn}} else {{''}}
+                email = if ($user.mail) {{$user.mail}} else {{''}}
+                enabled = $user.Enabled
+                ou = $user.DistinguishedName
+                description = if ($user.Description) {{$user.Description}} else {{''}}
+                last_logon_utc = $lastLogon
+            }} | ConvertTo-Json -Compress
+        }}
         """
 
         result = await self._run_powershell(command, {"username": username})
@@ -152,6 +157,7 @@ class ActiveDirectoryIdentityBackend:
                 "first_name": user_data.get("first_name", "") or "",
                 "last_name": user_data.get("last_name", "") or "",
                 "display_name": user_data.get("display_name", "") or "",
+                "email": user_data.get("email", "") or "",
                 "enabled": user_data["enabled"],
                 "ou": user_data["ou"],
                 "description": user_data["description"] or "",
@@ -171,35 +177,33 @@ class ActiveDirectoryIdentityBackend:
 
         max_results = max(1, min(limit, 100))
         escaped_query = self._escape_ps_single_quoted(query)
-
         command = f"""
-            $query = '{escaped_query}'
-            $tokens = @($query.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries))
+        $query = '{escaped_query}'
+        $tokens = @($query.Split(' ', [System.StringSplitOptions]::RemoveEmptyEntries))
+        if ($tokens.Count -ge 2) {{
+            $first = $tokens[0]
+            $last = $tokens[1]
+            $adFilter = "(givenName -like '$($first)*' -and sn -like '$($last)*') -or (displayName -like '$query*')"
+        }} else {{
+            $adFilter = "givenName -like '$query*' -or sn -like '$query*' -or displayName -like '$query*'"
+        }}
 
-            if ($tokens.Count -ge 2) {{
-                $first = $tokens[0]
-                $last = $tokens[1]
-                $adFilter = "(givenName -like '$($first)*' -and surname -like '$($last)*') -or (displayName -like '$query*')"
-            }} else {{
-                $adFilter = "givenName -like '$query*' -or surname -like '$query*' -or displayName -like '$query*'"
-            }}
+        $users = @(Get-ADUser -Filter $adFilter -Properties displayName,mail,givenName,sn,Enabled,DistinguishedName -ErrorAction Stop |
+            ForEach-Object {{
+                @{{
+                    username = $_.SamAccountName
+                    display_name = if ($_.displayName) {{ $_.displayName }} else {{ $_.Name }}
+                    first_name = if ($_.givenName) {{ $_.givenName }} else {{ '' }}
+                    last_name = if ($_.sn) {{ $_.sn }} else {{ '' }}
+                    email = if ($_.mail) {{ $_.mail }} else {{ '' }}
+                    enabled = $_.Enabled
+                    ou = $_.DistinguishedName
+                }}
+            }} | Select-Object -First {max_results})
 
-            $users = @(Get-ADUser -Filter $adFilter -Properties GivenName,Surname,DisplayName,Enabled,DistinguishedName -ErrorAction Stop |
-                Sort-Object DisplayName |
-                Select-Object -First {max_results} |
-                ForEach-Object {{
-                    @{{
-                        username = $_.SamAccountName
-                        first_name = if ($_.GivenName) {{ $_.GivenName }} else {{ '' }}
-                        last_name = if ($_.Surname) {{ $_.Surname }} else {{ '' }}
-                        display_name = if ($_.DisplayName) {{ $_.DisplayName }} else {{ '' }}
-                        enabled = $_.Enabled
-                        ou = $_.DistinguishedName
-                    }}
-                }})
-
-            $users | ConvertTo-Json -Compress
+        $users | ConvertTo-Json -Compress
         """
+
 
         result = await self._run_powershell(
             command,
@@ -234,6 +238,7 @@ class ActiveDirectoryIdentityBackend:
                         "first_name": user.get("first_name", "") or "",
                         "last_name": user.get("last_name", "") or "",
                         "display_name": user.get("display_name", "") or "",
+                        "email": user.get("email", "") or "",
                         "enabled": bool(user.get("enabled", False)),
                         "ou": user.get("ou", "") or "",
                     }

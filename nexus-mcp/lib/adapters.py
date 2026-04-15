@@ -114,26 +114,26 @@ class ADUserAdapter:
             # This is a simplification; in reality we'd need to look up the manager's email
             manager_email = None  # Would require a separate AD lookup
         
+
         return CanonicalUser(
-            email=_get(ad_user, "mail", default=""),
-            employee_id=_get(ad_user, "employeeID"),
-            username=_get(ad_user, "sAMAccountName"),
-            display_name=_get(ad_user, "displayName", default="Unknown"),
-            first_name=_get(ad_user, "givenName"),
-            last_name=_get(ad_user, "sn"),
-            job_title=_get(ad_user, "title"),
+            email=_get(ad_user, "email", default=""),
+            employee_id=_get(ad_user, "employee_id"),
+            username=_get(ad_user, "username"),
+            display_name=_get(ad_user, "display_name", default="Unknown"),
+            first_name=_get(ad_user, "first_name"),
+            last_name=_get(ad_user, "last_name"),
+            job_title=_get(ad_user, "job_title"),
             department=_get(ad_user, "department"),
             manager_email=manager_email,
-            office_location=_get(ad_user, "physicalDeliveryOfficeName"),
+            office_location=_get(ad_user, "office_location"),
             status=status,
             is_enabled=not is_disabled,
-            last_login=_parse_iso_date(_get(ad_user, "lastLogonTimestamp")),
-            created_date=_parse_iso_date(_get(ad_user, "whenCreated")),
-            phone=_get(ad_user, "telephoneNumber"),
+            last_login=_parse_iso_date(_get(ad_user, "last_logon_utc")),
+            created_date=_parse_iso_date(_get(ad_user, "created_date")),
+            phone=_get(ad_user, "phone"),
             source_system="ActiveDirectory",
-            source_id=_get(ad_user, "dn"),
+            source_id=_get(ad_user, "ou"),
         )
-
 
 # ── Microsoft Entra ID Adapters ───────────────────────────────────────────────
 
