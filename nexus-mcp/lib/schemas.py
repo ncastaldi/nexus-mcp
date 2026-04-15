@@ -14,8 +14,8 @@ This pattern prevents fragile dict access and enables compile-time safety.
 """
 
 from __future__ import annotations
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from typing import Literal, Optional
 from datetime import datetime
 from enum import Enum
 
@@ -62,7 +62,9 @@ class CanonicalUser(BaseModel):
     phone: Optional[str] = None
     
     # Source tracking
-    source_system: str = Field(description="System this data came from (AD, Entra, Workday)")
+    source_system: Literal["ActiveDirectory", "Entra", "Workday"] = Field(
+    description="System this data came from"
+    )
     source_id: Optional[str] = Field(default=None, description="Native ID in source system")
     
     @field_validator('email')
@@ -77,6 +79,9 @@ class CanonicalUser(BaseModel):
         """Normalize username to lowercase."""
         return v.lower().strip() if v else None
 
+    model_config = ConfigDict(
+        extra="forbid"  # Stops silent adapter drift
+    )
 
 # ── Device/Asset Domain ───────────────────────────────────────────────────────
 
@@ -132,7 +137,7 @@ class CanonicalDevice(BaseModel):
     mac_address: Optional[str] = None
     
     # Source tracking
-    source_system: str = Field(description="System this data came from (Intune, Lansweeper, Helix)")
+    source_system: Literal["Intune", "Lansweeper", "Helix"] = Field(description="System this data came from")
     source_id: Optional[str] = Field(default=None, description="Native ID in source system")
     
     @field_validator('hostname')
@@ -202,7 +207,7 @@ class CanonicalIncident(BaseModel):
     resolved_date: Optional[datetime] = None
     
     # Source tracking
-    source_system: str = "helix"
+    source_system: Literal["helix"] = Field(description="System this data came from")
     source_id: Optional[str] = None
 
 
@@ -251,7 +256,7 @@ class CanonicalShipment(BaseModel):
     service_type: Optional[str] = None
     
     # Source tracking
-    source_system: str = "fedex"
+    source_system: Literal["fedex"] = Field(description="System this data came from")
     source_id: Optional[str] = None
 
 
