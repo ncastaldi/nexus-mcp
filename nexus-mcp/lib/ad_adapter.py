@@ -317,6 +317,58 @@ class ActiveDirectoryIdentityBackend:
             logger.error("Failed to parse member data: %s", str(e))
             return []
 
+    async def list_disabled_accounts(self, limit: int = 5000) -> list[dict[str, Any]]:
+        """Return disabled AD user accounts with normalized fields."""
+        clamped_limit = min(max(1, limit), 10000)
+        command = f"""
+            $users = @(Get-ADUser -Filter {{ Enabled -eq $false }} -Properties GivenName,Surname,DisplayName,Enabled,DistinguishedName,Description,lastLogonTimestamp,whenCreated,Department,Title,EmailAddress -ErrorAction Stop | Select-Object -First {clamped_limit})
+
+            $items = @($users | ForEach-Object {{
+                $lastLogon = if ($_.lastLogonTimestamp) {{
+                    [DateTime]::FromFileTime($_.lastLogonTimestamp).ToUniversalTime().ToString('o')
+                }} else {{ '' }}
+                $whenCreated = if ($_.whenCreated) {{
+                    $_.whenCreated.ToUniversalTime().ToString('o')
+                }} else {{ '' }}
+
+                @{{
+                    username = $_.SamAccountName
+                    display_name = if ($_.DisplayName) {{ $_.DisplayName }} else {{ '' }}
+                    first_name = if ($_.GivenName) {{ $_.GivenName }} else {{ '' }}
+                    last_name = if ($_.Surname) {{ $_.Surname }} else {{ '' }}
+                    enabled = $_.Enabled
+                    ou = $_.DistinguishedName
+                    description = if ($_.Description) {{ $_.Description }} else {{ '' }}
+                    last_logon_utc = $lastLogon
+                    when_created_utc = $whenCreated
+                    department = if ($_.Department) {{ $_.Department }} else {{ '' }}
+                    title = if ($_.Title) {{ $_.Title }} else {{ '' }}
+                    email = if ($_.EmailAddress) {{ $_.EmailAddress }} else {{ '' }}
+                }}
+            }})
+
+            $items | ConvertTo-Json -Depth 3 -Compress
+        """
+
+        result = await self._run_powershell(command, {"limit": clamped_limit})
+        if not result["success"]:
+            logger.warning("list_disabled_accounts failed: %s", result["error"])
+            return []
+
+        if not result["data"]:
+            return []
+
+        try:
+            items = json.loads(result["data"])
+            if isinstance(items, list):
+                return items
+            if isinstance(items, dict):
+                return [items]
+            return []
+        except json.JSONDecodeError as e:
+            logger.error("Failed to parse disabled account data: %s", str(e))
+            return []
+
     async def find_stale_users(self, days: int) -> list[dict[str, Any]]:
         """Get users with no logon activity in N days using lastLogonTimestamp."""
         if days < 0:

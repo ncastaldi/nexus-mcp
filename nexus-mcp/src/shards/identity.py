@@ -145,15 +145,15 @@ def register(mcp: FastMCP) -> None:
         return [{"sAMAccountName": u} for u in usernames]
 
     @mcp.tool()
-    async def ad_get_disabled_accounts() -> list[dict]:
+    async def ad_get_disabled_accounts(limit: int = 5000) -> list[dict]:
         """Return all disabled user accounts in Active Directory.
 
         userAccountControl value 514 = normal account (512) + disabled (2).
         """
         if _USE_MOCK:
-            return [u for u in M.AD_USERS if u.get("userAccountControl") == "514"]
-        resp = await _get_ad().query_users(filter_params={"enabled": False}, page_size=200)
-        return resp.get("items", [])
+            disabled = [u for u in M.AD_USERS if u.get("userAccountControl") == "514"]
+            return disabled[: max(1, limit)]
+        return await _get_ad().list_disabled_accounts(limit=limit)
 
     @mcp.tool()
     async def ad_get_stale_accounts(days_inactive: int = 90) -> list[dict]:
