@@ -36,7 +36,7 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(_root, ".env"))
 
 from mcp.server.fastmcp import FastMCP
-from shards import identity, workday, itsm, assets, logistics, audit
+from shards import identity, workday, itsm, assets, logistics, audit, reports
 
 # ── Build the server ──────────────────────────────────────────────────────────
 
@@ -101,6 +101,13 @@ if _enabled("AUDIT"):
     print("[nexus] ✅ audit shard loaded")
 else:
     print("[nexus] ⏸  audit shard disabled (ENABLE_AUDIT != true)")
+
+# 🟢 Reports — save_report tool for persisting large outputs (WIS-TBD)
+if _enabled("REPORTS"):
+    reports.register(mcp)
+    print("[nexus] ✅ reports shard loaded")
+else:
+    print("[nexus] ⏸  reports shard disabled (ENABLE_REPORTS != true)")
 
 
 # ── SOC 2 Audit Middleware (CC7.2 / CC6.1) ───────────────────────────────────
