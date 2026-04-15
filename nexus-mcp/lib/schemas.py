@@ -29,7 +29,6 @@ class UserStatus(str, Enum):
     SUSPENDED = "suspended"
     TERMINATED = "terminated"
 
-
 class CanonicalUser(BaseModel):
     """Normalized user object across AD, Entra, and Workday.
     
@@ -62,9 +61,7 @@ class CanonicalUser(BaseModel):
     phone: Optional[str] = None
     
     # Source tracking
-    source_system: Literal["ActiveDirectory", "Entra", "Workday"] = Field(
-    description="System this data came from"
-    )
+    source_system: Literal["ActiveDirectory", "Entra", "Workday"] = Field(description="System this data came from")
     source_id: Optional[str] = Field(default=None, description="Native ID in source system")
     
     @field_validator('email')
@@ -75,9 +72,9 @@ class CanonicalUser(BaseModel):
     
     @field_validator('username')
     @classmethod
-    def normalize_username(cls, v: Optional[str]) -> Optional[str]:
+    def normalize_username(cls, v: str) -> str:
         """Normalize username to lowercase."""
-        return v.lower().strip() if v else None
+        return v.lower().strip()
 
     model_config = ConfigDict(
         extra="forbid"  # Stops silent adapter drift
