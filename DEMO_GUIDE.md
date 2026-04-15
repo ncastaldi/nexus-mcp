@@ -1,4 +1,4 @@
-# Nexus-MCP — demo and setup guide
+# Nexus-MCP — Demo and Setup Guide
 
 Sharded enterprise integration MCP server for Active Directory, Entra ID, Workday, BMC Helix, Lansweeper, Intune, FedEx, and cross-system drift auditing.
 
