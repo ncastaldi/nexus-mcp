@@ -21,12 +21,11 @@ _USE_MOCK = os.getenv("USE_MOCK", "false").lower() == "true"
 _ad = None
 _entra = None
 
-
 def _get_ad():
     global _ad
     if _ad is None:
-        from ad_adapter import ActiveDirectoryAdapter
-        _ad = ActiveDirectoryAdapter()
+        from ad_adapter import ActiveDirectoryIdentityBackend
+        _ad = ActiveDirectoryIdentityBackend()
     return _ad
 
 
