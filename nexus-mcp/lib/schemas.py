@@ -39,7 +39,7 @@ class CanonicalUser(BaseModel):
     # Identity
     email: str = Field(description="Primary work email (normalized to lowercase)")
     employee_id: Optional[str] = Field(default=None, description="Employee ID from HR system")
-    username: Optional[str] = Field(default=None, description="Login username (sAMAccountName/UPN)")
+    username: str = Field(description="Login username (sAMAccountName/UPN)")    
     
     # Profile
     display_name: str = Field(description="Full display name")
