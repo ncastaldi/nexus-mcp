@@ -1,5 +1,5 @@
 ---
-agent: Plan
+agent: agent
 name: code-review
 description: This prompt helps you review code for your existing MCP server by guiding you through logic analysis, security checks, and performance assessments.
 model: Claude Sonnet 4.6 (copilot)
