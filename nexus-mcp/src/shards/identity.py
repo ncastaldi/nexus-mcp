@@ -6,6 +6,7 @@ Mock:   Set USE_MOCK=true to use built-in sample data (no credentials needed).
 
 from __future__ import annotations
 import asyncio
+import logging
 import os
 import sys
 
@@ -15,6 +16,8 @@ from mcp.server.fastmcp import FastMCP
 import mock_data as M
 from adapters import ADUserAdapter, EntraUserAdapter
 from schemas import CanonicalUser
+
+logger = logging.getLogger(__name__)
 
 _USE_MOCK = os.getenv("USE_MOCK", "false").lower() == "true"
 
@@ -54,7 +57,7 @@ def register(mcp: FastMCP) -> None:
             canonical = ADUserAdapter.to_canonical(ad_dict)
             return canonical.model_dump(mode='json', exclude_none=True)
         
-        ad_dict = await asyncio.to_thread(_get_ad().get_user, sam_account_name)
+        ad_dict = await _get_ad().get_user(sam_account_name)
         if not ad_dict:
             return None
         canonical = ADUserAdapter.to_canonical(ad_dict)
@@ -72,8 +75,18 @@ def register(mcp: FastMCP) -> None:
                 return None
             canonical = ADUserAdapter.to_canonical(ad_dict)
             return canonical.model_dump(mode='json', exclude_none=True)
-        
-        ad_dict = await asyncio.to_thread(_get_ad().get_user_by_email, email)
+
+        # No dedicated email lookup in backend — bounded paginated scan via query_users.
+        resp = await _get_ad().query_users(
+            fields=["username", "display_name", "first_name", "last_name",
+                    "enabled", "ou", "description", "last_logon_utc", "email"],
+            page_size=500,
+        )
+        target = email.lower()
+        ad_dict = next(
+            (u for u in resp.get("items", []) if (u.get("email") or "").lower() == target),
+            None,
+        )
         if not ad_dict:
             return None
         canonical = ADUserAdapter.to_canonical(ad_dict)
@@ -95,7 +108,7 @@ def register(mcp: FastMCP) -> None:
             canonical_users = [ADUserAdapter.to_canonical(u) for u in matches[:limit]]
             return [u.model_dump(mode='json', exclude_none=True) for u in canonical_users]
         
-        ad_dicts = await asyncio.to_thread(_get_ad().search_users, query, limit)
+        ad_dicts = await _get_ad().search_users_by_name(query, limit)
         canonical_users = [ADUserAdapter.to_canonical(u) for u in ad_dicts]
         return [u.model_dump(mode='json', exclude_none=True) for u in canonical_users]
 
@@ -104,7 +117,9 @@ def register(mcp: FastMCP) -> None:
         """List all security and distribution groups in Active Directory."""
         if _USE_MOCK:
             return M.AD_GROUPS[:limit]
-        return await asyncio.to_thread(_get_ad().get_groups, limit)
+        # TODO: AD backend does not yet expose group enumeration (see WIS-018).
+        logger.warning("ad_list_groups: group enumeration not yet implemented in AD backend")
+        return []
 
     @mcp.tool()
     async def ad_get_group_members(group_dn: str) -> list[dict]:
@@ -117,7 +132,8 @@ def register(mcp: FastMCP) -> None:
                 for u in M.AD_USERS
                 if group_cn in (u.get("memberOf") or "").lower()
             ]
-        return await asyncio.to_thread(_get_ad().get_group_members, group_dn)
+        usernames = await _get_ad().get_group_members(group_dn)
+        return [{"sAMAccountName": u} for u in usernames]
 
     @mcp.tool()
     async def ad_get_disabled_accounts() -> list[dict]:
@@ -127,7 +143,8 @@ def register(mcp: FastMCP) -> None:
         """
         if _USE_MOCK:
             return [u for u in M.AD_USERS if u.get("userAccountControl") == "514"]
-        return await asyncio.to_thread(_get_ad().get_disabled_accounts)
+        resp = await _get_ad().query_users(filter_params={"enabled": False}, page_size=200)
+        return resp.get("items", [])
 
     @mcp.tool()
     async def ad_get_stale_accounts(days_inactive: int = 90) -> list[dict]:
@@ -146,7 +163,7 @@ def register(mcp: FastMCP) -> None:
                 if u.get("userAccountControl") != "514"
                 and (u.get("lastLogonTimestamp") or "9999") < cutoff
             ]
-        return await asyncio.to_thread(_get_ad().get_stale_accounts, days_inactive)
+        return await _get_ad().find_stale_users(days_inactive)
 
     # ── Microsoft Entra ID ────────────────────────────────────────────────────
 
