@@ -13,9 +13,18 @@ from mcp.server.fastmcp import FastMCP
 
 logger = logging.getLogger("nexus-mcp.reports")
 
-# Repo root = nexus-mcp/src/shards/ → up 3 = nexus-mcp/ → up 4 = workspace root
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_DEFAULT_OUTPUT_DIR = _REPO_ROOT / "documentation" / "output-reports"
+# Workspace root = nexus-mcp/src/shards/ -> up 4
+_WORKSPACE_ROOT = Path(__file__).resolve().parents[3]
+_DEFAULT_OUTPUT_DIR = _WORKSPACE_ROOT / "output-reports"
+
+
+def _resolve_output_dir(raw_output_dir: Optional[Path]) -> Path:
+    """Resolve output path; relative paths are anchored at workspace root."""
+    if raw_output_dir is None:
+        return _DEFAULT_OUTPUT_DIR
+    if raw_output_dir.is_absolute():
+        return raw_output_dir.resolve()
+    return (_WORKSPACE_ROOT / raw_output_dir).resolve()
 
 
 def _slugify(text: str) -> str:
@@ -34,7 +43,7 @@ def register(mcp: FastMCP) -> None:
         import os
         if os.getenv("REPORT_OUTPUT_DIR"):
             from config import ReportConfig
-            _output_dir = Path(ReportConfig().output_dir).resolve()
+            _output_dir = _resolve_output_dir(Path(ReportConfig().output_dir))
         else:
             _output_dir = _DEFAULT_OUTPUT_DIR
     except Exception:
@@ -79,7 +88,7 @@ def register(mcp: FastMCP) -> None:
 
         # Safety guard: keep all writes inside the permitted output tree
         try:
-            abs_path.relative_to(_output_dir.parents[0])
+            abs_path.relative_to(_output_dir)
         except ValueError:
             return {
                 "status": "error",
