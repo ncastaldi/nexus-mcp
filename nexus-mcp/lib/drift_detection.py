@@ -7,13 +7,94 @@ Workday (source of truth) and AD (target system) across multiple dimensions:
 - Department drift
 - Name variance (legal/preferred vs display name)
 
-For production deployment, replace MOCK_WORKERS with live API calls to
-workday_client.py and ad_adapter.py.
+Each scan function accepts an optional `workers` parameter:
+  - When None (default): uses MOCK_WORKERS_FROM_MOCK_DATA built from mock_data.py,
+    which reflects the full enriched Workday + AD dataset.
+  - When provided: must be a dict mapping employee_id → flat worker record
+    (same schema as MOCK_WORKERS below). This path is used by the live
+    integration once WorkdayClient + ADAdapter data is plumbed in.
+
+The legacy MOCK_WORKERS constant is preserved for backwards compatibility
+with existing tests that depend on its specific EMP001-EMP777 entries.
 """
 
+import os
+import sys
 from typing import Any
 
-# Mock dataset with reporting-line relationships for manager checks (WIS-017 prep)
+# Make lib/ importable when run directly
+_lib = os.path.dirname(os.path.abspath(__file__))
+if _lib not in sys.path:
+    sys.path.insert(0, _lib)
+
+
+def _build_workers_from_mock_data() -> dict[str, dict[str, Any]]:
+    """Build a flat worker dict from mock_data.WORKDAY_WORKERS cross-referenced
+    against mock_data.AD_USERS.  This is the default dataset for all scan
+    functions when no explicit workers argument is supplied.
+
+    The flat schema produced here matches the MOCK_WORKERS structure so that
+    scan functions only need one code path.
+    """
+    try:
+        import mock_data as M
+    except ImportError:
+        return {}
+
+    # Build AD lookup by employeeID for fast cross-reference
+    ad_by_emp_id: dict[str, dict] = {
+        u["employeeID"]: u for u in M.AD_USERS if u.get("employeeID")
+    }
+
+    workers: dict[str, dict[str, Any]] = {}
+    for w in M.WORKDAY_WORKERS:
+        emp_id = w.get("employeeID", "")
+        if not emp_id:
+            continue
+
+        job = w.get("primaryJob") or {}
+        wd_title = (job.get("jobProfile") or {}).get("descriptor", "")
+        wd_dept = (job.get("businessUnit") or {}).get("descriptor", "")
+        cost_center = (w.get("costCenter") or {}).get("descriptor", "")
+        wd_status = (w.get("workerStatus") or {}).get("descriptor", "Active")
+
+        ad = ad_by_emp_id.get(emp_id, {})
+        ad_title = ad.get("title", "")
+        ad_dept = ad.get("department", "")
+        # AD enabled: userAccountControl "512" = enabled, "514" = disabled
+        uac = str(ad.get("userAccountControl", "512"))
+        try:
+            ad_enabled = (int(uac) & 2) == 0
+        except (ValueError, TypeError):
+            ad_enabled = True
+
+        workers[emp_id] = {
+            "name": w.get("preferredName") or w.get("descriptor", ""),
+            "legal_name": w.get("legalName", w.get("descriptor", "")),
+            "preferred_name": w.get("preferredName", ""),
+            "ad_display_name": ad.get("displayName", ""),
+            "status": wd_status,
+            "ad_enabled": ad_enabled,
+            "dept": wd_dept,
+            "workday_cost_center": cost_center,
+            "workday_title": wd_title,
+            "ad_title": ad_title,
+            "ad_department": ad_dept,
+            "email": w.get("primaryWorkEmail", ""),
+            "manager_id": (
+                (job.get("manager") or {}).get("id", "")
+            ),
+        }
+    return workers
+
+
+# Default dataset: built once at import time from mock_data.py
+# Scan functions use this when no explicit workers argument is passed.
+MOCK_WORKERS_FROM_MOCK_DATA: dict[str, dict[str, Any]] = _build_workers_from_mock_data()
+
+# ── Legacy constant (kept for backwards compatibility with existing tests) ────
+# MOCK_WORKERS uses a separate fictional dataset (EMP001-EMP777).
+# New code should prefer MOCK_WORKERS_FROM_MOCK_DATA or pass live data directly.
 MOCK_WORKERS: dict[str, dict[str, Any]] = {
     "EMP001": {
         "name": "Nathan",
@@ -154,17 +235,25 @@ MOCK_WORKERS: dict[str, dict[str, Any]] = {
 }
 
 
-def scan_status_reconciliation_mismatches() -> dict[str, Any]:
+def scan_status_reconciliation_mismatches(
+    workers: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Detect workers terminated in Workday but still enabled in AD.
-    
+
+    Args:
+        workers: Optional flat worker dict (employee_id → record). Defaults to
+                 MOCK_WORKERS_FROM_MOCK_DATA (built from mock_data.py).
+                 Pass live data here once WorkdayClient + ADAdapter are wired.
+
     Returns:
         dict with 'scan_summary' (total_records_checked, mismatches_found, status)
         and 'mismatches' array of affected employees.
     """
+    dataset = workers if workers is not None else MOCK_WORKERS_FROM_MOCK_DATA
     mismatches: list[dict[str, Any]] = []
     total_scanned = 0
 
-    for employee_id, details in MOCK_WORKERS.items():
+    for employee_id, details in dataset.items():
         total_scanned += 1
         workday_status = details.get("status")
         ad_enabled = bool(details.get("ad_enabled", False))
@@ -191,16 +280,22 @@ def scan_status_reconciliation_mismatches() -> dict[str, Any]:
     }
 
 
-def scan_job_title_mismatches() -> dict[str, Any]:
+def scan_job_title_mismatches(
+    workers: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Detect workers whose Workday title differs from their AD title.
-    
+
+    Args:
+        workers: Optional flat worker dict. Defaults to MOCK_WORKERS_FROM_MOCK_DATA.
+
     Returns:
         dict with 'scan_summary' and 'mismatches' array.
     """
+    dataset = workers if workers is not None else MOCK_WORKERS_FROM_MOCK_DATA
     mismatches: list[dict[str, Any]] = []
     total_scanned = 0
 
-    for employee_id, details in MOCK_WORKERS.items():
+    for employee_id, details in dataset.items():
         total_scanned += 1
         workday_title = details.get("workday_title", "")
         ad_title = details.get("ad_title", "")
@@ -227,16 +322,22 @@ def scan_job_title_mismatches() -> dict[str, Any]:
     }
 
 
-def scan_department_drift() -> dict[str, Any]:
+def scan_department_drift(
+    workers: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Detect workers whose Workday department context differs from AD department.
-    
+
+    Args:
+        workers: Optional flat worker dict. Defaults to MOCK_WORKERS_FROM_MOCK_DATA.
+
     Returns:
         dict with 'scan_summary' and 'mismatches' array.
     """
+    dataset = workers if workers is not None else MOCK_WORKERS_FROM_MOCK_DATA
     mismatches: list[dict[str, Any]] = []
     total_scanned = 0
 
-    for employee_id, details in MOCK_WORKERS.items():
+    for employee_id, details in dataset.items():
         total_scanned += 1
         workday_department = details.get("dept", "")
         workday_cost_center = details.get("workday_cost_center", "")
@@ -270,16 +371,22 @@ def _normalize_name_tokens(value: str) -> list[str]:
     return [token for token in value.lower().replace(".", " ").split() if token]
 
 
-def scan_name_variance() -> dict[str, Any]:
+def scan_name_variance(
+    workers: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     """Detect AD display names that do not align to legal or preferred Workday names.
-    
+
+    Args:
+        workers: Optional flat worker dict. Defaults to MOCK_WORKERS_FROM_MOCK_DATA.
+
     Returns:
         dict with 'scan_summary' and 'mismatches' array.
     """
+    dataset = workers if workers is not None else MOCK_WORKERS_FROM_MOCK_DATA
     mismatches: list[dict[str, Any]] = []
     total_scanned = 0
 
-    for employee_id, details in MOCK_WORKERS.items():
+    for employee_id, details in dataset.items():
         total_scanned += 1
         legal_name = details.get("legal_name", "")
         preferred_name = details.get("preferred_name", "")

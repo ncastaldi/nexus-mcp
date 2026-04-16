@@ -3,21 +3,31 @@
 Realistic enterprise mock data for all 6 shards.
 Deliberate drift is seeded across systems to make audit tools return meaningful results.
 
-Drift scenarios built in:
-  - Bob Martinez: jobTitle differs between AD ("Sr. Software Engineer") and Workday/Entra ("Software Engineer")
-  - Carol Chen:   department differs — Workday "Product Management" vs AD/Entra "Engineering"
+Identity / Workday drift scenarios:
+  - Bob Martinez:    jobTitle drift — AD "Sr. Software Engineer" vs Workday/Entra "Software Engineer"
+  - Carol Chen:      department drift — AD "Engineering" vs Workday/Entra "Product Management"
+  - Grace Lee:       title drift — AD "Human Resources Director" vs Workday "HR Director"
+  - Frank Davis:     department drift — AD "Information Technology" vs Workday "IT Operations"
+  - Taylor Brooks:   terminated in Workday but AD account still ENABLED (HIGH severity)
+  - Henry Park:      Active in Workday (new hire) but AD account DISABLED / not yet provisioned
+  - David Kim:       AD account disabled but Entra account still enabled (cloud/on-prem split)
+  - Emma Wilson:     AD stale account — no login in 120 days
+
+Asset drift scenarios:
   - LAPTOP-CAROL-03: serialNumber differs — Lansweeper "SN-CAROL-03A" vs Intune "SN-CAROL-03B"
-  - David Kim:    AD account disabled but Entra account still enabled
-  - Emma Wilson:  AD stale account (no login in 120 days)
-  - SERVER-PROD-01: exists in Lansweeper + Helix CMDB but not in Intune (unmanaged server)
+  - SERVER-PROD-01:  exists in Lansweeper + Helix CMDB but not in Intune (unmanaged server)
+
+Workday worker objects follow the REST API v6 staffing/workers response shape:
+  https://community.workday.com/sites/default/files/file-hosting/restapi/
 """
 
 import datetime
 
-_NOW = datetime.datetime.utcnow()
+_NOW = datetime.datetime.now(datetime.timezone.utc)
 _FMT = "%Y-%m-%dT%H:%M:%SZ"
 _D = lambda days: (_NOW - datetime.timedelta(days=days)).strftime(_FMT)
 _DATE = lambda days: (_NOW - datetime.timedelta(days=days)).strftime("%Y-%m-%d")
+_TODAY = _NOW.strftime("%Y-%m-%d")
 
 
 # ─── Active Directory ─────────────────────────────────────────────────────────
@@ -99,7 +109,7 @@ AD_USERS: list[dict] = [
         "sAMAccountName": "emmaw",
         "displayName": "Emma Wilson",
         "mail": "emma.wilson@nexus.corp",
-        "department": "HR",
+        "department": "Human Resources",
         "title": "HR Specialist",
         "manager": "CN=Grace Lee,OU=Users,DC=corp,DC=nexus,DC=local",
         "memberOf": "CN=HR,OU=Groups,DC=corp,DC=nexus,DC=local",
@@ -117,7 +127,8 @@ AD_USERS: list[dict] = [
         "sAMAccountName": "frankd",
         "displayName": "Frank Davis",
         "mail": "frank.davis@nexus.corp",
-        "department": "IT Operations",
+        # ⚡ DRIFT: AD department is "Information Technology" but Workday has "IT Operations"
+        "department": "Information Technology",
         "title": "IT Director",
         "manager": None,
         "memberOf": "CN=IT Ops,OU=Groups,DC=corp,DC=nexus,DC=local",
@@ -134,8 +145,9 @@ AD_USERS: list[dict] = [
         "sAMAccountName": "gracel",
         "displayName": "Grace Lee",
         "mail": "grace.lee@nexus.corp",
-        "department": "HR",
-        "title": "HR Director",
+        "department": "Human Resources",
+        # ⚡ DRIFT: AD title is "Human Resources Director" but Workday has "HR Director"
+        "title": "Human Resources Director",
         "manager": None,
         "memberOf": "CN=HR,OU=Groups,DC=corp,DC=nexus,DC=local",
         "employeeID": "EMP-1007",
@@ -145,6 +157,42 @@ AD_USERS: list[dict] = [
         "telephoneNumber": "+1-555-0107",
         "physicalDeliveryOfficeName": "HQ-Floor2",
         "cn": "Grace Lee",
+    },
+    {
+        # ⚡ NEW HIRE NOT PROVISIONED: Active in Workday but AD account is disabled
+        "dn": "CN=Henry Park,OU=Users,DC=corp,DC=nexus,DC=local",
+        "sAMAccountName": "henryp",
+        "displayName": "Henry Park",
+        "mail": "henry.park@nexus.corp",
+        "department": "Engineering",
+        "title": "Junior Software Engineer",
+        "manager": "CN=Alice Johnson,OU=Users,DC=corp,DC=nexus,DC=local",
+        "memberOf": "CN=Engineering,OU=Groups,DC=corp,DC=nexus,DC=local",
+        "employeeID": "EMP-1008",
+        "userAccountControl": "514",
+        "lastLogonTimestamp": None,
+        "whenCreated": _D(5),
+        "telephoneNumber": "+1-555-0108",
+        "physicalDeliveryOfficeName": "HQ-Floor3",
+        "cn": "Henry Park",
+    },
+    {
+        # ⚡ TERMINATED BUT ENABLED: Terminated in Workday; AD account still active
+        "dn": "CN=Taylor Brooks,OU=Users,DC=corp,DC=nexus,DC=local",
+        "sAMAccountName": "taylorb",
+        "displayName": "Taylor Brooks",
+        "mail": "taylor.brooks@nexus.corp",
+        "department": "Sales",
+        "title": "Account Executive",
+        "manager": "CN=Frank Davis,OU=Users,DC=corp,DC=nexus,DC=local",
+        "memberOf": "CN=VPN Users,OU=Groups,DC=corp,DC=nexus,DC=local",
+        "employeeID": "EMP-1009",
+        "userAccountControl": "512",
+        "lastLogonTimestamp": _D(14),
+        "whenCreated": "2022-03-15T08:00:00Z",
+        "telephoneNumber": "+1-555-0109",
+        "physicalDeliveryOfficeName": "HQ-Floor2",
+        "cn": "Taylor Brooks",
     },
 ]
 
@@ -267,6 +315,19 @@ ENTRA_USERS: list[dict] = [
         "onPremisesSyncEnabled": False,
         "assignedLicenses": [],
     },
+    {
+        # ⚡ TERMINATED BUT STILL ENABLED in Entra (cloud side of the same terminated scenario)
+        "id": "aaa11111-0000-0000-0000-000000000009",
+        "displayName": "Taylor Brooks",
+        "userPrincipalName": "taylor.brooks@nexus.corp",
+        "mail": "taylor.brooks@nexus.corp",
+        "jobTitle": "Account Executive",
+        "department": "Sales",
+        "accountEnabled": True,
+        "createdDateTime": "2022-03-15T08:00:00Z",
+        "onPremisesSyncEnabled": True,
+        "assignedLicenses": [{"skuId": "6fd2c87f-b296-42f0-b197-1e91e994b900"}],
+    },
 ]
 
 ENTRA_USERS_BY_MAIL = {u["mail"]: u for u in ENTRA_USERS if u.get("mail")}
@@ -347,106 +408,252 @@ ENTRA_SERVICE_PRINCIPALS: list[dict] = [
 
 WORKDAY_WORKERS: list[dict] = [
     {
-        "id": "WD-EMP-1001", "descriptor": "Alice Johnson",
+        # Workday REST API v6 staffing/workers response shape
+        "id": "WD-EMP-1001",
+        "descriptor": "Alice Johnson",
+        "employeeID": "EMP-1001",
+        "firstName": "Alice",
+        "lastName": "Johnson",
+        "legalName": "Alice Mary Johnson",
+        "preferredName": "Alice",
         "primaryWorkEmail": "alice.johnson@nexus.corp",
+        "primaryWorkPhone": "+1-555-0101",
         "hireDate": "2019-04-01",
+        "effectiveDate": _TODAY,
         "primaryJob": {
-            "jobProfile": {"descriptor": "Engineering Manager"},
-            "businessUnit": {"descriptor": "Engineering"},
-            "location": {"descriptor": "New York HQ"},
+            "jobProfile": {"descriptor": "Engineering Manager", "id": "PROFILE-101"},
+            "businessUnit": {"descriptor": "Engineering", "id": "ORG-101"},
+            "location": {"descriptor": "New York HQ", "id": "LOC-001"},
+            "manager": {
+                "descriptor": "Frank Davis",
+                "primaryWorkEmail": "frank.davis@nexus.corp",
+                "id": "WD-EMP-1006",
+            },
         },
+        "supervisoryOrganization": {"descriptor": "Engineering", "id": "ORG-101"},
+        "costCenter": {"descriptor": "CC110-ENG", "id": "CC-101"},
         "workerType": {"descriptor": "Employee"},
         "workerStatus": {"descriptor": "Active"},
     },
     {
-        "id": "WD-EMP-1002", "descriptor": "Bob Martinez",
+        "id": "WD-EMP-1002",
+        "descriptor": "Bob Martinez",
+        "employeeID": "EMP-1002",
+        "firstName": "Bob",
+        "lastName": "Martinez",
+        "legalName": "Robert Martinez",
+        "preferredName": "Bob",
         "primaryWorkEmail": "bob.martinez@nexus.corp",
+        "primaryWorkPhone": "+1-555-0102",
         "hireDate": "2021-06-15",
+        "effectiveDate": _TODAY,
         "primaryJob": {
-            # ⚡ DRIFT: Workday says "Software Engineer" (AD says "Sr. Software Engineer")
-            "jobProfile": {"descriptor": "Software Engineer"},
-            "businessUnit": {"descriptor": "Engineering"},
-            "location": {"descriptor": "New York HQ"},
+            # ⚡ DRIFT: Workday says "Software Engineer" — AD says "Sr. Software Engineer"
+            "jobProfile": {"descriptor": "Software Engineer", "id": "PROFILE-102"},
+            "businessUnit": {"descriptor": "Engineering", "id": "ORG-101"},
+            "location": {"descriptor": "New York HQ", "id": "LOC-001"},
+            "manager": {
+                "descriptor": "Alice Johnson",
+                "primaryWorkEmail": "alice.johnson@nexus.corp",
+                "id": "WD-EMP-1001",
+            },
         },
+        "supervisoryOrganization": {"descriptor": "Engineering", "id": "ORG-101"},
+        "costCenter": {"descriptor": "CC110-ENG", "id": "CC-101"},
         "workerType": {"descriptor": "Employee"},
         "workerStatus": {"descriptor": "Active"},
     },
     {
-        "id": "WD-EMP-1003", "descriptor": "Carol Chen",
+        "id": "WD-EMP-1003",
+        "descriptor": "Carol Chen",
+        "employeeID": "EMP-1003",
+        "firstName": "Carol",
+        "lastName": "Chen",
+        "legalName": "Carol Chen",
+        "preferredName": "Carol",
         "primaryWorkEmail": "carol.chen@nexus.corp",
+        "primaryWorkPhone": "+1-555-0103",
         "hireDate": "2020-09-10",
+        "effectiveDate": _TODAY,
         "primaryJob": {
-            "jobProfile": {"descriptor": "Product Manager"},
-            # ⚡ DRIFT: Workday department is "Product Management" (AD has "Engineering")
-            "businessUnit": {"descriptor": "Product Management"},
-            "location": {"descriptor": "New York HQ"},
+            "jobProfile": {"descriptor": "Product Manager", "id": "PROFILE-103"},
+            # ⚡ DRIFT: Workday dept "Product Management" — AD has "Engineering"
+            "businessUnit": {"descriptor": "Product Management", "id": "ORG-102"},
+            "location": {"descriptor": "New York HQ", "id": "LOC-001"},
+            "manager": {
+                "descriptor": "Alice Johnson",
+                "primaryWorkEmail": "alice.johnson@nexus.corp",
+                "id": "WD-EMP-1001",
+            },
         },
+        "supervisoryOrganization": {"descriptor": "Product Management", "id": "ORG-102"},
+        "costCenter": {"descriptor": "CC120-PROD", "id": "CC-102"},
         "workerType": {"descriptor": "Employee"},
         "workerStatus": {"descriptor": "Active"},
     },
     {
-        "id": "WD-EMP-1004", "descriptor": "David Kim",
+        "id": "WD-EMP-1004",
+        "descriptor": "David Kim",
+        "employeeID": "EMP-1004",
+        "firstName": "David",
+        "lastName": "Kim",
+        "legalName": "David Kim",
+        "preferredName": "David",
         "primaryWorkEmail": "david.kim@nexus.corp",
+        "primaryWorkPhone": "+1-555-0104",
         "hireDate": "2018-02-20",
+        "effectiveDate": _TODAY,
         "primaryJob": {
-            "jobProfile": {"descriptor": "Systems Administrator"},
-            "businessUnit": {"descriptor": "IT Operations"},
-            "location": {"descriptor": "New York HQ"},
+            "jobProfile": {"descriptor": "Systems Administrator", "id": "PROFILE-104"},
+            "businessUnit": {"descriptor": "IT Operations", "id": "ORG-103"},
+            "location": {"descriptor": "New York HQ", "id": "LOC-001"},
+            "manager": {
+                "descriptor": "Frank Davis",
+                "primaryWorkEmail": "frank.davis@nexus.corp",
+                "id": "WD-EMP-1006",
+            },
         },
+        "supervisoryOrganization": {"descriptor": "IT Operations", "id": "ORG-103"},
+        "costCenter": {"descriptor": "CC130-ITOPS", "id": "CC-103"},
         "workerType": {"descriptor": "Employee"},
         "workerStatus": {"descriptor": "Leave of Absence"},
     },
     {
-        "id": "WD-EMP-1005", "descriptor": "Emma Wilson",
+        "id": "WD-EMP-1005",
+        "descriptor": "Emma Wilson",
+        "employeeID": "EMP-1005",
+        "firstName": "Emma",
+        "lastName": "Thompson",
+        # ⚡ NAME VARIANCE: recently married — legal name updated in Workday but AD still shows maiden name "Wilson"
+        "legalName": "Emma Thompson",
+        "preferredName": "Emma",
         "primaryWorkEmail": "emma.wilson@nexus.corp",
+        "primaryWorkPhone": "+1-555-0105",
         "hireDate": "2017-11-05",
+        "effectiveDate": _TODAY,
         "primaryJob": {
-            "jobProfile": {"descriptor": "HR Specialist"},
-            "businessUnit": {"descriptor": "Human Resources"},
-            "location": {"descriptor": "New York HQ"},
+            "jobProfile": {"descriptor": "HR Specialist", "id": "PROFILE-105"},
+            "businessUnit": {"descriptor": "Human Resources", "id": "ORG-104"},
+            "location": {"descriptor": "New York HQ", "id": "LOC-001"},
+            "manager": {
+                "descriptor": "Grace Lee",
+                "primaryWorkEmail": "grace.lee@nexus.corp",
+                "id": "WD-EMP-1007",
+            },
         },
+        "supervisoryOrganization": {"descriptor": "Human Resources", "id": "ORG-104"},
+        "costCenter": {"descriptor": "CC140-HR", "id": "CC-104"},
         "workerType": {"descriptor": "Employee"},
         "workerStatus": {"descriptor": "Active"},
     },
     {
-        "id": "WD-EMP-1006", "descriptor": "Frank Davis",
+        "id": "WD-EMP-1006",
+        "descriptor": "Frank Davis",
+        "employeeID": "EMP-1006",
+        "firstName": "Frank",
+        "lastName": "Davis",
+        "legalName": "Franklin Davis",
+        "preferredName": "Frank",
         "primaryWorkEmail": "frank.davis@nexus.corp",
+        "primaryWorkPhone": "+1-555-0106",
         "hireDate": "2016-03-01",
+        "effectiveDate": _TODAY,
         "primaryJob": {
-            "jobProfile": {"descriptor": "IT Director"},
-            "businessUnit": {"descriptor": "IT Operations"},
-            "location": {"descriptor": "New York HQ"},
+            "jobProfile": {"descriptor": "IT Director", "id": "PROFILE-106"},
+            # ⚡ DRIFT: Workday dept "IT Operations" — AD has "Information Technology"
+            "businessUnit": {"descriptor": "IT Operations", "id": "ORG-103"},
+            "location": {"descriptor": "New York HQ", "id": "LOC-001"},
+            "manager": None,
         },
+        "supervisoryOrganization": {"descriptor": "IT Operations", "id": "ORG-103"},
+        "costCenter": {"descriptor": "CC130-ITOPS", "id": "CC-103"},
         "workerType": {"descriptor": "Employee"},
         "workerStatus": {"descriptor": "Active"},
     },
     {
-        "id": "WD-EMP-1007", "descriptor": "Grace Lee",
+        "id": "WD-EMP-1007",
+        "descriptor": "Grace Lee",
+        "employeeID": "EMP-1007",
+        "firstName": "Grace",
+        "lastName": "Lee",
+        "legalName": "Grace Lee",
+        "preferredName": "Grace",
         "primaryWorkEmail": "grace.lee@nexus.corp",
+        "primaryWorkPhone": "+1-555-0107",
         "hireDate": "2016-07-15",
+        "effectiveDate": _TODAY,
         "primaryJob": {
-            "jobProfile": {"descriptor": "HR Director"},
-            "businessUnit": {"descriptor": "Human Resources"},
-            "location": {"descriptor": "New York HQ"},
+            # ⚡ DRIFT: Workday title "HR Director" — AD has "Human Resources Director"
+            "jobProfile": {"descriptor": "HR Director", "id": "PROFILE-107"},
+            "businessUnit": {"descriptor": "Human Resources", "id": "ORG-104"},
+            "location": {"descriptor": "New York HQ", "id": "LOC-001"},
+            "manager": None,
         },
+        "supervisoryOrganization": {"descriptor": "Human Resources", "id": "ORG-104"},
+        "costCenter": {"descriptor": "CC140-HR", "id": "CC-104"},
         "workerType": {"descriptor": "Employee"},
         "workerStatus": {"descriptor": "Active"},
     },
     {
-        "id": "WD-EMP-1008", "descriptor": "Henry Park",
+        # ⚡ NEW HIRE: Active in Workday; AD account created but still DISABLED (not provisioned)
+        "id": "WD-EMP-1008",
+        "descriptor": "Henry Park",
+        "employeeID": "EMP-1008",
+        "firstName": "Henry",
+        "lastName": "Park",
+        "legalName": "Henry Park",
+        "preferredName": "Henry",
         "primaryWorkEmail": "henry.park@nexus.corp",
-        "hireDate": _DATE(5),  # New hire this week
+        "primaryWorkPhone": "+1-555-0108",
+        "hireDate": _DATE(5),
+        "effectiveDate": _TODAY,
         "primaryJob": {
-            "jobProfile": {"descriptor": "Junior Software Engineer"},
-            "businessUnit": {"descriptor": "Engineering"},
-            "location": {"descriptor": "New York HQ"},
+            "jobProfile": {"descriptor": "Junior Software Engineer", "id": "PROFILE-108"},
+            "businessUnit": {"descriptor": "Engineering", "id": "ORG-101"},
+            "location": {"descriptor": "New York HQ", "id": "LOC-001"},
+            "manager": {
+                "descriptor": "Alice Johnson",
+                "primaryWorkEmail": "alice.johnson@nexus.corp",
+                "id": "WD-EMP-1001",
+            },
         },
+        "supervisoryOrganization": {"descriptor": "Engineering", "id": "ORG-101"},
+        "costCenter": {"descriptor": "CC110-ENG", "id": "CC-101"},
         "workerType": {"descriptor": "Employee"},
         "workerStatus": {"descriptor": "Active"},
+    },
+    {
+        # ⚡ TERMINATED BUT AD STILL ENABLED — highest severity drift scenario
+        "id": "WD-EMP-1009",
+        "descriptor": "Taylor Brooks",
+        "employeeID": "EMP-1009",
+        "firstName": "Taylor",
+        "lastName": "Brooks",
+        "legalName": "Taylor Brooks",
+        "preferredName": "Taylor",
+        "primaryWorkEmail": "taylor.brooks@nexus.corp",
+        "primaryWorkPhone": "+1-555-0109",
+        "hireDate": "2022-03-15",
+        "effectiveDate": _TODAY,
+        "primaryJob": {
+            "jobProfile": {"descriptor": "Account Executive", "id": "PROFILE-109"},
+            "businessUnit": {"descriptor": "Sales", "id": "ORG-105"},
+            "location": {"descriptor": "New York HQ", "id": "LOC-001"},
+            "manager": {
+                "descriptor": "Frank Davis",
+                "primaryWorkEmail": "frank.davis@nexus.corp",
+                "id": "WD-EMP-1006",
+            },
+        },
+        "supervisoryOrganization": {"descriptor": "Sales", "id": "ORG-105"},
+        "costCenter": {"descriptor": "CC150-SALES", "id": "CC-105"},
+        "workerType": {"descriptor": "Employee"},
+        "workerStatus": {"descriptor": "Terminated"},
     },
 ]
 
 WORKDAY_WORKERS_BY_EMAIL = {w["primaryWorkEmail"]: w for w in WORKDAY_WORKERS}
+WORKDAY_WORKERS_BY_ID = {w["id"]: w for w in WORKDAY_WORKERS}
 
 WORKDAY_POSITIONS: list[dict] = [
     {"id": "POS-2001", "descriptor": "Senior Product Manager", "status": "Open", "businessUnit": "Product Management", "location": "New York HQ"},
@@ -456,11 +663,12 @@ WORKDAY_POSITIONS: list[dict] = [
 ]
 
 WORKDAY_ORGANIZATIONS: list[dict] = [
-    {"id": "ORG-100", "descriptor": "Nexus Corp", "type": "Company", "headcount": 8},
+    {"id": "ORG-100", "descriptor": "Nexus Corp", "type": "Company", "headcount": 9},
     {"id": "ORG-101", "descriptor": "Engineering", "type": "Supervisory", "headcount": 3, "parent": "ORG-100"},
     {"id": "ORG-102", "descriptor": "Product Management", "type": "Supervisory", "headcount": 1, "parent": "ORG-100"},
     {"id": "ORG-103", "descriptor": "IT Operations", "type": "Supervisory", "headcount": 2, "parent": "ORG-100"},
     {"id": "ORG-104", "descriptor": "Human Resources", "type": "Supervisory", "headcount": 2, "parent": "ORG-100"},
+    {"id": "ORG-105", "descriptor": "Sales", "type": "Supervisory", "headcount": 1, "parent": "ORG-100"},
 ]
 
 WORKDAY_COMPENSATION: dict[str, dict] = {
@@ -472,6 +680,7 @@ WORKDAY_COMPENSATION: dict[str, dict] = {
     "WD-EMP-1006": {"grade": "G8", "salaryRange": {"min": 155000, "max": 200000, "currency": "USD"}, "payFrequency": "Annual"},
     "WD-EMP-1007": {"grade": "G7", "salaryRange": {"min": 130000, "max": 170000, "currency": "USD"}, "payFrequency": "Annual"},
     "WD-EMP-1008": {"grade": "G2", "salaryRange": {"min": 75000, "max": 95000, "currency": "USD"}, "payFrequency": "Annual"},
+    "WD-EMP-1009": {"grade": "G4", "salaryRange": {"min": 80000, "max": 105000, "currency": "USD"}, "payFrequency": "Annual"},
 }
 
 
