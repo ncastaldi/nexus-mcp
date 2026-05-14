@@ -1,21 +1,47 @@
-# Nexus-MCP — Enterprise Integration Server
+# Nexus — Enterprise Integration Platform
 
->Sharded Model Context Protocol server for enterprise systems.
->
->Each shard is self-contained and can be toggled independently via feature flags.
+> A self-hosted, sharded integration server that connects enterprise business systems and surfaces what they can't see individually.
 
 ---
 
-## Why This Exists
+## The Problem
 
-Enterprise identity data lies. A user gets promoted in Workday, but their Active Directory title doesn't update. An employee is terminated, but their Entra ID account stays enabled. A legal name change happens in HR, but AD still has the old one — quietly, for months.
+Enterprise systems don't talk to each other. They each hold a piece of the truth — and the gaps between them are where problems hide.
 
-These aren't edge cases. They're compliance risks, security gaps, and audit findings waiting to happen. And they're almost impossible to catch manually across three platforms.
+A terminated employee still active in Active Directory. A device enrolled in Intune but untracked in the helpdesk. Fifty laptops inbound from a voluntary retirement program with no system of record for where they go next.
 
-Nexus-MCP was built to surface exactly this: identity drift between Workday HCM, Active Directory, and Entra ID — detected automatically, severity-scored, and reported before it becomes a problem.
+These aren't edge cases. They're the normal state of enterprise IT when systems grow independently and nobody builds the layer that connects them.
 
-Built on my own time. Driven by a real problem observed in a production enterprise environment.
+Nexus is that layer.
 
+---
+
+## What It Does
+
+Nexus polls enterprise systems via their native APIs, normalizes the data, and surfaces inconsistencies — scored by severity, ready for review or automation.
+
+Each integration is a self-contained **shard**: independently togglable, independently testable, and designed to be extended without touching anything else. The platform grows with the problem.
+
+**Current focus areas:**
+
+- **Identity** — Reconciles user records across Active Directory and Entra ID. Detects status drift, title mismatches, department 
+  changes, and name variances before they become compliance findings. Workday HCM integration is in active development.
+
+- **Assets** *(in development)* — Correlates device data across Intune, Lansweeper, and BMC Helix to build a complete picture of device assignment history. Built to support PC refresh programs, voluntary retirement collections, and asset lifecycle management.
+
+- **Logistics** *(in development)* — Tracks device movement through receiving, staging, deployment, and decommission. Started as a solution for tracking inbound refresh hardware; designed to scale to full lifecycle logistics.
+
+**The roadmap:** Host in Azure. Expose via Microsoft Copilot agent. Turn multi-system investigations into conversations.
+
+---
+
+## Built By
+
+Nathan Castaldi — IT systems and integration practitioner.  
+Built on own time, against real enterprise problems observed in a production environment.  
+Portfolio: [linkedin.com/in/nathancastaldi](https://linkedin.com/in/nathancastaldi)
+
+---
 <!-- STATUS_PAGE:BEGIN -->
 ## Shard Status Board (Traffic Light)
 
