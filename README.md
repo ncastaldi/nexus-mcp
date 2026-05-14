@@ -8,7 +8,8 @@
 
 Enterprise systems don't talk to each other. They each hold a piece of the truth — and the gaps between them are where problems hide.
 
-A terminated employee still active in Active Directory. A device enrolled in Intune but untracked in the helpdesk. Fifty laptops inbound from a voluntary retirement program with no system of record for where they go next.
+A terminated employee still active in Active Directory. A device enrolled in Intune but untracked in the helpdesk. Fifty laptops
+inbound from a voluntary retirement program with no system of record for where they go next. A user generating tickets at an unusual rate that nobody notices because the data lives in three different places.
 
 These aren't edge cases. They're the normal state of enterprise IT when systems grow independently and nobody builds the layer that connects them.
 
@@ -18,14 +19,17 @@ Nexus is that layer.
 
 ## What It Does
 
-Nexus polls enterprise systems via their native APIs, normalizes the data, and surfaces inconsistencies — scored by severity, ready for review or automation.
+Nexus polls enterprise systems via their native APIs, normalizes the data, and does two things: surfaces inconsistencies between
+systems, and aggregates what no single system can report alone.
 
 Each integration is a self-contained **shard**: independently togglable, independently testable, and designed to be extended without touching anything else. The platform grows with the problem.
 
 **Current focus areas:**
 
-- **Identity** — Reconciles user records across Active Directory and Entra ID. Detects status drift, title mismatches, department 
+- **Identity** — Reconciles user records across Active Directory and Entra ID. Detects status drift, title mismatches, department
   changes, and name variances before they become compliance findings. Workday HCM integration is in active development.
+
+- **ITSM** *(in development)* — Pulls ticket data from BMC Helix to enable operational reporting across users, devices, and issue types Answers questions no single system can: how many tickets has this device generated? What's the incident pattern across a refresh cohort? Which users generate the most escalations?
 
 - **Assets** *(in development)* — Correlates device data across Intune, Lansweeper, and BMC Helix to build a complete picture of device assignment history. Built to support PC refresh programs, voluntary retirement collections, and asset lifecycle management.
 
@@ -37,10 +41,12 @@ Each integration is a self-contained **shard**: independently togglable, indepen
 
 ## Built By
 
-Nathan Castaldi — IT systems and integration practitioner.  
-Built on own time, against real enterprise problems observed in a production environment.  
+Nathan Castaldi — IT systems and integration practitioner.
+Built on own time, against real enterprise problems observed in
+a production environment.
 Portfolio: [linkedin.com/in/nathancastaldi](https://linkedin.com/in/nathancastaldi)
 
+---
 ---
 <!-- STATUS_PAGE:BEGIN -->
 ## Shard Status Board (Traffic Light)
