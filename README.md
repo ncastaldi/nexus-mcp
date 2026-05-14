@@ -6,6 +6,16 @@
 
 ---
 
+## Why This Exists
+
+Enterprise identity data lies. A user gets promoted in Workday, but their Active Directory title doesn't update. An employee is terminated, but their Entra ID account stays enabled. A legal name change happens in HR, but AD still has the old one — quietly, for months.
+
+These aren't edge cases. They're compliance risks, security gaps, and audit findings waiting to happen. And they're almost impossible to catch manually across three platforms.
+
+Nexus-MCP was built to surface exactly this: identity drift between Workday HCM, Active Directory, and Entra ID — detected automatically, severity-scored, and reported before it becomes a problem.
+
+Built on my own time. Driven by a real problem observed in a production enterprise environment.
+
 <!-- STATUS_PAGE:BEGIN -->
 ## Shard Status Board (Traffic Light)
 
