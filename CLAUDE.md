@@ -266,11 +266,11 @@ The stated design requires tool return values to be canonical Pydantic models fr
 - Wrong-branch commits: cherry-pick onto the correct branch + reset; do not rewrite shared history.
 - Ruled out: merge commits for feature integration; forced pushes to `main`.
 
-### Autonomy boundary
+### Autonomy boundary (from `agentic-design-intent.md`)
 
-- [UNCLEAR — see open questions] `agentic-design-intent.md` at the repo root appears to originate from a different project (`homelab-registry-mcp`). Its principles may still reflect operator intent for this project.
-- Fully autonomous writes to live infrastructure (degree 5 on the agentic spectrum) are explicitly out of scope.
-- The stated next agentic step (degree 3) is human-in-loop: system proposes a change; a human approves it before it is applied.
+- Fully autonomous writes to AD, Entra, Workday, or any HR/identity system (degree 5 on the agentic spectrum) are explicitly out of scope.
+- The next intentional step (degree 3) is human-in-loop: a drift finding triggers a Helix ITSM ticket; an IT admin approves the remediation before it is applied.
+- Ruled out: the server ever writing directly to a live identity system without a human review step.
 
 ### Work item numbering
 
@@ -326,7 +326,7 @@ The README and this file have historically labeled `itsm`, `assets`, and `logist
 
 ## Open questions
 
-1. **`agentic-design-intent.md` provenance.** The file at the repo root explicitly references `homelab-registry-mcp`, Traefik, Authentik, Docker, and Gitea — it is a design document from a different project. Should it be removed from this repo, or does it intentionally capture cross-project autonomy principles that apply here?
+1. **`agentic-design-intent.md` scope.** The document has been rewritten for nexus-mcp. The reasoning layer (`lib/reasoning/`) and scheduled scan wiring are not yet built — confirm whether those should become NEXUS work items before the next planning cycle.
 
 2. **`audit_minimal.py` existence.** The 2026-05-30 consistency audit references `src/shards/audit_minimal.py` as a dead shard with an empty `register()` and a module-level `AuditLog()` side effect. This file does not appear in the directory listing from the code survey and is not imported in `main.py`. [UNCLEAR] whether it has already been deleted or was missed. Confirm and remove if it still exists.
 
